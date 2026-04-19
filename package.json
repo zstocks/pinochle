@@ -1,0 +1,9 @@
+{
+  "name": "pinochle",
+  "version": "0.1.0",
+  "description": "Family-rules double Pinochle",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/"
+  }
+}
