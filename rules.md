@@ -32,9 +32,9 @@ Each hand proceeds in this fixed order:
 4. Trick-taking
 5. Count counters and update scores
 
-Exception: if the dealer auto-takes at 50 with no marriage (see §4), the hand
-ends after bidding. No meld is declared, no tricks are played, and the dealing
-team is set 50 points.
+Exception: if the dealer auto-takes at 50 with no marriage (see §4), trick-taking
+is skipped. The non-dealing team still proceeds through meld declaration; the
+dealing team is set 50 points. See §5 and §8 for details.
 
 ## 4. Dealing
 
@@ -71,7 +71,12 @@ team is set 50 points.
 ### Dealer auto-take, no-marriage edge case
 - If the dealer auto-takes at 50 and does not hold a marriage, the dealing team
   is immediately **set 50 points**.
-- The hand ends. No meld, no tricks. The next dealer (clockwise) deals the next hand.
+- The non-dealing team proceeds through meld declaration. If their combined
+  meld is at least 20, they save it. (See §8 for scoring details.)
+- The dealing team gains nothing — even if they hold non-marriage meld
+  (e.g. a round of aces), they cannot save it.
+- No tricks are played. After meld declaration, the next dealer (clockwise)
+  deals the next hand.
 
 ## 6. Meld
 
@@ -123,14 +128,25 @@ To avoid ambiguity, the specific overlap rules:
 - **Family in trump includes the trump marriage.** If the hand has a family,
   the K+Q within it is already counted in the 16. Additional K+Q pairs of trump
   beyond the one used in the family count as additional trump marriages (4 each).
-- **Round robin overrides individual marriages.** If a hand contains K+Q in every
-  suit, score 24 — not 24 plus the individual marriages. (The round robin is
-  the *way* of counting K+Q-in-every-suit; it doesn't stack with its components.)
+- **Round robin absorbs marriages, round of kings, and round of queens.**
+  The 24-point value of round robin is mathematically equal to (4 marriages: 2+2+2+4)
+  + (round of kings: 8) + (round of queens: 6). When round robin fires, it
+  takes the place of all of those — they are NOT added on top.
+- **Round robin is abandoned when a double round of K or Q is present.**
+  If the hand has at least 2 kings in every suit (a double round of kings)
+  or at least 2 queens in every suit (a double round of queens), round
+  robin's clean absorption math no longer works. In that case, score
+  piecewise: each marriage individually, the K-round (single or double)
+  separately, the Q-round (single or double) separately. Round robin does
+  not fire.
 - **Double family is 150 flat.** Do not add 16 twice for the two families within it.
 - **Multiple trump marriages stack.** Two K+Q pairs of trump, no family = 4 + 4 = 8.
-- **Cards cross categories freely.** Examples with spades as trump:
+- **Cards cross categories freely (with the round-robin exception above).**
+  Examples with spades as trump:
   - A Q♠ can count toward family (trump), round of queens, and pinochle
-    simultaneously. It's one card serving three categories.
+    simultaneously. It's one card serving three categories. (The round-of-queens
+    interaction with round robin is the exception; round robin absorbs that
+    round when it fires.)
   - A J♦ can count toward pinochle without preventing a family from also being scored.
 - **Partial family has no bonus.** A + K + Q + J of trump without the 10 scores
   as the individual parts (marriage in trump = 4, plus any rounds it contributes to).
@@ -202,6 +218,17 @@ counters or they're set.
 - If `meld_L ≥ 20` AND `counters_L < 20`: no change. Meld not saved, counters not kept.
 - If `meld_L < 20` AND `counters_L ≥ 20`: `score_L += counters_L`. (Counters only, no meld.)
 - If `meld_L < 20` AND `counters_L < 20`: no change.
+
+### Dealer-no-marriage scoring
+
+When the dealer auto-takes at 50 with no marriage (per §5), the hand is not
+played out. Instead:
+
+- Dealing team: `score -= 50` (always set).
+- Non-dealing team: if `meld_L ≥ 20`, `score += meld_L`. Otherwise no change.
+
+The 20-counter floor does not apply here because no tricks are played. The
+dealing team's own meld is never saved in this case, regardless of value.
 
 ### Negative scores
 - Scores can go below zero.

@@ -138,17 +138,51 @@ test("scoreHand throws on invalid declarerTeam", () => {
 
 // ----- scoreDealerNoMarriage --------------------------------------------------
 
-test("scoreDealerNoMarriage applies -50 to dealer team only", () => {
+test("scoreDealerNoMarriage: opponent below meld floor gets 0", () => {
     assert.deepEqual(
-        scoreDealerNoMarriage("team_A"),
+        scoreDealerNoMarriage({
+            dealerTeam: "team_A",
+            meld: { team_A: 0, team_B: 15 }
+        }),
         { team_A: -50, team_B: 0, declarerSet: true }
     );
+});
+
+test("scoreDealerNoMarriage: opponent at meld floor saves it", () => {
     assert.deepEqual(
-        scoreDealerNoMarriage("team_B"),
-        { team_A: 0, team_B: -50, declarerSet: true }
+        scoreDealerNoMarriage({
+            dealerTeam: "team_A",
+            meld: { team_A: 0, team_B: 20 }
+        }),
+        { team_A: -50, team_B: 20, declarerSet: true }
+    );
+});
+
+test("scoreDealerNoMarriage: opponent with high meld saves all of it", () => {
+    assert.deepEqual(
+        scoreDealerNoMarriage({
+            dealerTeam: "team_B",
+            meld: { team_A: 75, team_B: 0 }
+        }),
+        { team_A: 75, team_B: -50, declarerSet: true }
+    );
+});
+
+test("scoreDealerNoMarriage: dealer team's own meld is irrelevant", () => {
+    // Dealer team might have non-marriage meld (e.g. round of aces) but they
+    // can't save it — they have no marriage, so the team is set regardless.
+    assert.deepEqual(
+        scoreDealerNoMarriage({
+            dealerTeam: "team_A",
+            meld: { team_A: 30, team_B: 10 }
+        }),
+        { team_A: -50, team_B: 0, declarerSet: true }
     );
 });
 
 test("scoreDealerNoMarriage throws on invalid dealer team", () => {
-    assert.throws(() => scoreDealerNoMarriage("nope"), /dealerTeam/);
+    assert.throws(
+        () => scoreDealerNoMarriage({ dealerTeam: "nope", meld: { team_A: 0, team_B: 0 } }),
+        /dealerTeam/
+    );
 });

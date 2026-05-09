@@ -60,18 +60,28 @@ export function scoreHand({ bid, declarerTeam, meld, counters }) {
 
 /**
  * Score the dealer-auto-take-no-marriage edge case.
- * The dealing team is set 50 points; the other team is unaffected.
+ *
+ * The dealing team is set 50 points. The non-dealing team still goes through
+ * meld declaration: if their combined meld ≥ 20, they save it. The 20-counter
+ * floor doesn't apply here because no tricks are played.
+ *
+ * Input:
+ *   dealerTeam — "team_A" or "team_B"
+ *   meld       — { team_A: number, team_B: number }
  */
-export function scoreDealerNoMarriage(dealerTeam) {
+export function scoreDealerNoMarriage({ dealerTeam, meld }) {
     if (!TEAMS.includes(dealerTeam)) {
         throw new Error(`dealerTeam must be "team_A" or "team_B", got "${dealerTeam}"`);
     }
 
     const opponentTeam = dealerTeam === "team_A" ? "team_B" : "team_A";
+    const opponentMeld = meld[opponentTeam];
+
+    const opponentDelta = opponentMeld >= MIN_MELD_TO_SAVE ? opponentMeld : 0;
 
     return {
         [dealerTeam]: -DEALER_NO_MARRIAGE_PENALTY,
-        [opponentTeam]: 0,
+        [opponentTeam]: opponentDelta,
         declarerSet: true
     };
 }
