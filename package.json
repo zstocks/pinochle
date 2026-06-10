@@ -5,5 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"test/**/*.js\""
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
   }
 }
