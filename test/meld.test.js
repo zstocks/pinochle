@@ -245,11 +245,36 @@ test("kitchen sink: family + extra marriage + rounds + pinochle", () => {
     assert.strictEqual(result.total, 48);
 });
 
+// ----- No-trump mode (dealer-no-marriage case) --------------------------------
+
+test("null trump scores no family — only the parts", () => {
+    // A full spade run under no trump: no family bonus, the K+Q is a plain
+    // marriage (2), and the four aces/etc. don't form rounds on their own.
+    const hand = ["AS", "10S", "KS", "QS", "JS"];
+    const result = computeMeld(hand, null);
+    assert.strictEqual(result.total, 2);  // just the marriage, no family
+});
+
+test("null trump counts every marriage as non-trump (2)", () => {
+    // K+Q in spades that would be a 4-point trump marriage if spades were trump.
+    const hand = ["KS", "QS", "KH", "QH"];
+    assert.strictEqual(computeMeld(hand, null).total, 4);  // 2 + 2, not 4 + 2
+});
+
+test("null trump still scores trump-independent meld (round robin)", () => {
+    const hand = ["KC", "QC", "KD", "QD", "KH", "QH", "KS", "QS"];
+    assert.strictEqual(computeMeld(hand, null).total, 24);  // round robin
+});
+
 // ----- Validation -------------------------------------------------------------
 
 test("computeMeld throws on invalid trump", () => {
     assert.throws(() => computeMeld([], "X"), /trump must be/);
     assert.throws(() => computeMeld([], ""), /trump must be/);
+});
+
+test("computeMeld accepts null trump (no-trump mode)", () => {
+    assert.doesNotThrow(() => computeMeld([], null));
 });
 
 // ----- Breakdown structure ----------------------------------------------------

@@ -42,6 +42,14 @@ const POINTS = {
 /**
  * Compute meld for a hand given the trump suit.
  *
+ * `trump` may be `null` to mean "no trump." This is needed for the dealer-
+ * auto-take-no-marriage case (rules.md §5): no trump is ever declared, so the
+ * non-dealing team's meld is scored with no trump-dependent bonuses — no family
+ * (family is trump-only), and every marriage counts as a plain non-trump
+ * marriage (2). Round robin, the A/K/Q/J rounds, and pinochle are unaffected
+ * since none of them depend on trump. The existing logic already yields exactly
+ * this when no suit equals the trump, so `null` needs no special-casing below.
+ *
  * Returns:
  *   {
  *     total: number,
@@ -52,8 +60,8 @@ const POINTS = {
  * non-trump marriages produce two entries of {name: "Marriage (D)", points: 2}.
  */
 export function computeMeld(hand, trump) {
-    if (!SUITS.includes(trump)) {
-        throw new Error(`trump must be one of C/D/H/S, got "${trump}"`);
+    if (trump !== null && !SUITS.includes(trump)) {
+        throw new Error(`trump must be one of C/D/H/S or null, got "${trump}"`);
     }
 
     const counts = countCards(hand);

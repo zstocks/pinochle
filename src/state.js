@@ -44,8 +44,29 @@ export function createInitialState(playerNames) {
         dealer,
         currentPlayer: null,  // set when bidding begins
 
+        // Seat that won the auction (or the dealer on an auto-take). Set when the
+        // auction resolves; distinct from bidding.highBidder because a dealer
+        // auto-take has no high bidder.
+        declarer: null,
+
+        // True only during a dealer-auto-take-at-50-with-no-marriage hand
+        // (rules.md §5). Decided at auction resolution, consumed at scoring.
+        dealerNoMarriage: false,
+
+        // Per-seat readiness for the engine's two "all four must act" barriers:
+        // start_game (before each deal) and acknowledge_meld (after the meld
+        // reveal, before tricks). Reset to all-false each time a barrier opens.
+        ready: [false, false, false, false],
+
         scores: { team_A: 0, team_B: 0 },
         targetScore: 500,
+
+        // Summary of the most recently scored hand, shown during the between-hands
+        // review barrier. Null until the first hand has been scored.
+        lastHandResult: null,
+
+        // Winning team ("team_A"/"team_B") once a team has reached the target.
+        winner: null,
 
         bidding: {
             currentBid: 0,

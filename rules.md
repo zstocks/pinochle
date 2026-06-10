@@ -242,5 +242,12 @@ dealing team's own meld is never saved in this case, regardless of value.
 
 *(To be resolved before or during implementation. Placeholder for spec growth.)*
 
-- None currently. This section exists so that when edge cases arise during
-  build, they get documented here and answered once, rather than re-litigated.
+- **No-marriage meld is computed with no trump.** In the dealer-auto-take-at-50-
+  with-no-marriage case (§5), no trump is ever declared, yet the non-dealing team
+  still saves meld if ≥20. Their meld is computed under *no trump*: no family
+  (family is trump-only) and every marriage counts as a plain non-trump marriage
+  (2). Trump-independent meld — round robin, the A/K/Q/J rounds, and pinochle —
+  is unaffected. (Resolved 2026-06-09. `computeMeld(hand, null)` implements this.)
+
+- This section exists so that when edge cases arise during build, they get
+  documented here and answered once, rather than re-litigated.

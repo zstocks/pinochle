@@ -4,6 +4,6 @@
   "description": "Family-rules double Pinochle",
   "type": "module",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test \"test/**/*.js\""
   }
 }
