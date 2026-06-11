@@ -1,0 +1,13 @@
+services:
+  pinochle:
+    build: .
+    container_name: pinochle
+    restart: unless-stopped
+    # Host port 3006 -> container 3000, bound to loopback only. nginx (TLS) is
+    # the only thing that talks to it; the 127.0.0.1 binding keeps Docker from
+    # punching past UFW. Never use 0.0.0.0 here.
+    ports:
+      - "127.0.0.1:3006:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"

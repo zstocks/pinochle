@@ -180,8 +180,12 @@ function send(ws, message) {
 }
 
 function clientIp(req) {
+    // Behind nginx the socket address is always 127.0.0.1, so trust the proxy's
+    // forwarded headers for the real client IP (used for the per-IP caps).
     const xff = req.headers["x-forwarded-for"];
     if (typeof xff === "string" && xff.length > 0) return xff.split(",")[0].trim();
+    const xRealIp = req.headers["x-real-ip"];
+    if (typeof xRealIp === "string" && xRealIp.length > 0) return xRealIp.trim();
     return req.socket.remoteAddress ?? "unknown";
 }
 
@@ -242,9 +246,13 @@ function serveStatic(req, res, publicDir) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const port = Number(process.env.PORT) || 3000;
+    // Bind all interfaces by default: in production Docker maps host
+    // 127.0.0.1:3006 -> container :3000, so exposure is controlled by the
+    // compose port binding (and UFW), not by the app's bind address.
+    const host = process.env.HOST || "0.0.0.0";
     const here = path.dirname(fileURLToPath(import.meta.url));
     const { httpServer } = createGameServer({ publicDir: path.resolve(here, "..", "public") });
-    httpServer.listen(port, "127.0.0.1", () => {
-        console.log(`pinochle server listening on 127.0.0.1:${port}`);
+    httpServer.listen(port, host, () => {
+        console.log(`pinochle server listening on ${host}:${port}`);
     });
 }
