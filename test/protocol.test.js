@@ -188,6 +188,25 @@ test("you always see your own meld breakdown even when your team is below the th
     assert.strictEqual(view.game.meld.teamTotals.team_B, null);
 });
 
+test("the current player's view includes their legal plays; others' do not", () => {
+    const snap = meldPhaseSnapshot();
+    snap.game.phase = "tricks";
+    snap.game.bidding.trump = "H";
+    snap.game.currentPlayer = 0;
+    snap.game.seats[0].hand = ["AS", "KS", "AD"];
+    snap.game.tricks = {
+        currentTrick: [{ seat: 3, card: "10S" }],
+        ledSuit: "S",
+        completed: [],
+        counters: { team_A: 0, team_B: 0 }
+    };
+
+    // Following spades and able to beat the 10S, the only legal play is the AS.
+    assert.deepEqual(redactStateFor(snap, 0).game.legalPlays, ["AS"]);
+    // A player whose turn it isn't gets no legal-play hint.
+    assert.strictEqual(redactStateFor(snap, 1).game.legalPlays, null);
+});
+
 // ----- redactEvents -----------------------------------------------------------
 
 test("redactEvents gates meld values but leaves public events untouched", () => {

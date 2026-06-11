@@ -12,6 +12,7 @@
 // are unit-tested in isolation with no network.
 
 import { teamOf } from "./state.js";
+import { legalPlays } from "./tricks.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -189,6 +190,13 @@ function redactGame(game, seat) {
         bidding: game.bidding,        // currentBid/highBidder/passed/trump are all public
         tricks: game.tricks,          // every played card is public
         lastHandResult: redactHandResult(game.lastHandResult),
+        // The legal cards for whoever's turn it is during tricks — computed
+        // server-side so the client can dim illegal cards without re-implementing
+        // the rules. Null for everyone else.
+        legalPlays:
+            game.phase === "tricks" && game.currentPlayer === seat
+                ? legalPlays(game.seats[seat].hand, game.tricks.currentTrick, game.bidding.trump)
+                : null,
         seats: game.seats.map((s, i) => ({
             handCount: s.hand.length,
             // Your own cards in full; everyone else only as a count.

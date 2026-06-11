@@ -4,6 +4,7 @@
   "description": "Family-rules double Pinochle",
   "type": "module",
   "scripts": {
+    "start": "node src/server.js",
     "test": "node --test \"test/**/*.js\""
   },
   "dependencies": {
