@@ -233,6 +233,23 @@ test("the current player's view includes their legal plays; others' do not", () 
     assert.strictEqual(redactStateFor(snap, 1).game.legalPlays, null);
 });
 
+test("the bidding view includes a meld calculator for the seat's own hand", () => {
+    const snap = meldPhaseSnapshot();
+    snap.game.phase = "bidding";
+    snap.game.seats[0].hand = ["AS", "10S", "KS", "QS", "JS", "JD"];
+
+    const calc = redactStateFor(snap, 0).game.meldCalc;
+    assert.ok(calc);
+    // Spades trump: family (16) + pinochle (4) = 20, with cards on each combo.
+    assert.strictEqual(calc.S.total, 20);
+    assert.ok(calc.S.breakdown.every((b) => Array.isArray(b.cards)));
+    // No-trump: no family, the K+Q is a plain marriage (2) + pinochle (4) = 6.
+    assert.strictEqual(calc.none.total, 6);
+    // It's only the requesting seat's own hand — a no-calc phase yields null.
+    snap.game.phase = "tricks";
+    assert.strictEqual(redactStateFor(snap, 0).game.meldCalc, null);
+});
+
 // ----- redactEvents -----------------------------------------------------------
 
 test("redactEvents gates meld values but leaves public events untouched", () => {

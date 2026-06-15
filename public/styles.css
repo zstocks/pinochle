@@ -203,6 +203,47 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
 .result p { margin: 4px 0; }
 .ready-count { text-align: center; color: #555; }
 
+/* ----- Meld calculator ----- */
+
+.calc-bar { margin: 4px 0; }
+.calc-bar .btn { width: 100%; background: #e7e3d8; }
+
+.calc-panel {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 4px 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.calc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.calc-trumps { display: flex; gap: 6px; margin-bottom: 10px; }
+.calc-trump-btn {
+    flex: 1; min-height: 40px; border: 2px solid #ccc; border-radius: 8px;
+    background: #fff; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+}
+.calc-trump-btn.red { color: var(--red); }
+.calc-trump-btn.black { color: var(--black); }
+.calc-trump-btn.active { box-shadow: inset 0 0 0 3px var(--accent); background: #eaf2ff; }
+
+.calc-combos { max-height: 38vh; overflow-y: auto; }
+.meld-combo {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 8px 0; border-bottom: 1px dotted #ccc;
+}
+.combo-cards { display: flex; flex-wrap: wrap; gap: 4px; }
+.combo-meta { display: flex; justify-content: space-between; font-size: 0.85rem; color: #444; }
+.combo-pts { font-weight: 700; }
+.calc-total { margin-top: 10px; text-align: right; font-size: 1.05rem; }
+
+.mini-card {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 26px; padding: 2px 4px;
+    background: #fff; border: 1px solid #00000033; border-radius: 4px;
+    font-size: 0.8rem; font-weight: 700;
+}
+.mini-card.black { color: var(--black); }
+.mini-card.red { color: var(--red); }
+
 /* ----- Hand ----- */
 
 .hand { background: var(--felt-dark); border-radius: 14px; padding: 10px; }

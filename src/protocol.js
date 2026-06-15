@@ -13,6 +13,7 @@
 
 import { teamOf } from "./state.js";
 import { legalPlays } from "./tricks.js";
+import { computeMeld } from "./meld.js";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -205,6 +206,10 @@ function redactGame(game, seat) {
             game.phase === "tricks" && game.currentPlayer === seat
                 ? legalPlays(game.seats[seat].hand, game.tricks.currentTrick, game.bidding.trump)
                 : null,
+        // Meld-calculator data for this seat's own hand during bidding: the meld
+        // they'd score under each possible trump (and no-trump). Computed by the
+        // engine so it always matches actual scoring; the client just displays it.
+        meldCalc: game.phase === "bidding" ? buildMeldCalc(game.seats[seat].hand) : null,
         seats: game.seats.map((s, i) => ({
             handCount: s.hand.length,
             // Your own cards in full; everyone else only as a count.
@@ -218,6 +223,17 @@ function redactGame(game, seat) {
                 (i === seat || isTeamShown(game.meld.teamTotals, i)) ? d : null
             )
         }
+    };
+}
+
+// Meld this hand would score under no-trump and each of the four suits.
+function buildMeldCalc(hand) {
+    return {
+        none: computeMeld(hand, null),
+        C: computeMeld(hand, "C"),
+        D: computeMeld(hand, "D"),
+        H: computeMeld(hand, "H"),
+        S: computeMeld(hand, "S")
     };
 }
 

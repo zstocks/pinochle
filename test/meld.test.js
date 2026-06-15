@@ -294,3 +294,18 @@ test("breakdown reflects detected melds with correct totals", () => {
     assert.match(names, /Family/);
     assert.match(names, /Pinochle/);
 });
+
+test("each breakdown entry lists the cards forming the meld", () => {
+    const family = computeMeld(["AS", "10S", "KS", "QS", "JS"], "S").breakdown[0];
+    assert.deepEqual(family.cards, ["AS", "10S", "KS", "QS", "JS"]);
+
+    const pinochle = computeMeld(["QS", "JD"], "C").breakdown[0];
+    assert.deepEqual(pinochle.cards, ["QS", "JD"]);
+
+    const aces = computeMeld(["AC", "AD", "AH", "AS"], "C").breakdown[0];
+    assert.deepEqual(aces.cards.sort(), ["AC", "AD", "AH", "AS"]);
+
+    // Double pinochle lists both pairs.
+    const dbl = computeMeld(["QS", "QS", "JD", "JD"], "C").breakdown[0];
+    assert.deepEqual(dbl.cards, ["QS", "JD", "QS", "JD"]);
+});

@@ -15,6 +15,28 @@
 import { parseCard } from "./cards.js";
 
 const SUITS = ["C", "D", "H", "S"];
+const FAMILY_RANKS = ["A", "10", "K", "Q", "J"];
+
+// Each breakdown entry carries the actual cards forming that meld, so callers
+// (e.g. the meld calculator UI) can show the card symbols. These build the
+// canonical card lists for a detected combo.
+function repeat(cards, times) {
+    const out = [];
+    for (let i = 0; i < times; i++) out.push(...cards);
+    return out;
+}
+function familyCards(trump, tier) {
+    return repeat(FAMILY_RANKS.map((r) => r + trump), tier);
+}
+function rankRoundCards(rank, tier) {
+    return repeat(SUITS.map((s) => rank + s), tier);
+}
+function roundRobinCards() {
+    return SUITS.flatMap((s) => ["K" + s, "Q" + s]);
+}
+function pinochleCards(count) {
+    return repeat(["QS", "JD"], count);
+}
 
 // Meld point values. Pulled out as constants so the code reads against the spec
 // and any future rule tweaks live in one place.
@@ -53,11 +75,12 @@ const POINTS = {
  * Returns:
  *   {
  *     total: number,
- *     breakdown: [{ name: string, points: number }, ...]
+ *     breakdown: [{ name: string, points: number, cards: string[] }, ...]
  *   }
  *
- * The breakdown lists each detected meld separately. For example, two
- * non-trump marriages produce two entries of {name: "Marriage (D)", points: 2}.
+ * The breakdown lists each detected meld separately, with the cards forming it.
+ * For example, two non-trump marriages produce two entries of
+ * {name: "Marriage (D)", points: 2, cards: ["KD", "QD"]}.
  */
 export function computeMeld(hand, trump) {
     if (trump !== null && !SUITS.includes(trump)) {
@@ -108,9 +131,9 @@ function addStructures(counts, trump, breakdown) {
     const familyTier = detectFamily(counts, trump);  // 0, 1, or 2
 
     if (familyTier === 2) {
-        breakdown.push({ name: "Double Family", points: POINTS.DOUBLE_FAMILY });
+        breakdown.push({ name: "Double Family", points: POINTS.DOUBLE_FAMILY, cards: familyCards(trump, 2) });
     } else if (familyTier === 1) {
-        breakdown.push({ name: `Family (${trump})`, points: POINTS.FAMILY });
+        breakdown.push({ name: `Family (${trump})`, points: POINTS.FAMILY, cards: familyCards(trump, 1) });
     }
 
     // K+Q pairs available in each suit, after family consumption.
@@ -130,7 +153,7 @@ function addStructures(counts, trump, breakdown) {
     const useRoundRobin = everySuitHasMarriage && !hasDoubleKingsRound && !hasDoubleQueensRound;
 
     if (useRoundRobin) {
-        breakdown.push({ name: "Round Robin", points: POINTS.ROUND_ROBIN });
+        breakdown.push({ name: "Round Robin", points: POINTS.ROUND_ROBIN, cards: roundRobinCards() });
         // Round robin absorbs 1 marriage from each suit (and the single rounds of K and Q).
         for (const suit of SUITS) pairsBySuit[suit] -= 1;
     } else {
@@ -144,12 +167,14 @@ function addStructures(counts, trump, breakdown) {
             if (suit === trump) {
                 breakdown.push({
                     name: `Marriage in trump (${suit})`,
-                    points: POINTS.MARRIAGE_TRUMP
+                    points: POINTS.MARRIAGE_TRUMP,
+                    cards: ["K" + suit, "Q" + suit]
                 });
             } else {
                 breakdown.push({
                     name: `Marriage (${suit})`,
-                    points: POINTS.MARRIAGE
+                    points: POINTS.MARRIAGE,
+                    cards: ["K" + suit, "Q" + suit]
                 });
             }
         }
@@ -160,24 +185,23 @@ function addStructures(counts, trump, breakdown) {
 function scoreKAndQRounds(counts, breakdown) {
     const minKings = Math.min(...SUITS.map((s) => copies(counts, "K", s)));
     if (minKings >= 2) {
-        breakdown.push({ name: "Double Round of Kings", points: POINTS.DOUBLE_ROUND_KINGS });
+        breakdown.push({ name: "Double Round of Kings", points: POINTS.DOUBLE_ROUND_KINGS, cards: rankRoundCards("K", 2) });
     } else if (minKings >= 1) {
-        breakdown.push({ name: "Round of Kings", points: POINTS.ROUND_KINGS });
+        breakdown.push({ name: "Round of Kings", points: POINTS.ROUND_KINGS, cards: rankRoundCards("K", 1) });
     }
 
     const minQueens = Math.min(...SUITS.map((s) => copies(counts, "Q", s)));
     if (minQueens >= 2) {
-        breakdown.push({ name: "Double Round of Queens", points: POINTS.DOUBLE_ROUND_QUEENS });
+        breakdown.push({ name: "Double Round of Queens", points: POINTS.DOUBLE_ROUND_QUEENS, cards: rankRoundCards("Q", 2) });
     } else if (minQueens >= 1) {
-        breakdown.push({ name: "Round of Queens", points: POINTS.ROUND_QUEENS });
+        breakdown.push({ name: "Round of Queens", points: POINTS.ROUND_QUEENS, cards: rankRoundCards("Q", 1) });
     }
 }
 
 // Returns 0 (no family), 1 (single family), or 2 (double family).
 // Family requires A, 10, K, Q, J all in trump suit.
 function detectFamily(counts, trump) {
-    const ranks = ["A", "10", "K", "Q", "J"];
-    const minCopies = Math.min(...ranks.map((r) => copies(counts, r, trump)));
+    const minCopies = Math.min(...FAMILY_RANKS.map((r) => copies(counts, r, trump)));
     return Math.min(minCopies, 2);
 }
 
@@ -195,9 +219,9 @@ function addRounds(counts, breakdown) {
     for (const { rank, single, double, name } of roundConfig) {
         const minPerSuit = Math.min(...SUITS.map((s) => copies(counts, rank, s)));
         if (minPerSuit >= 2) {
-            breakdown.push({ name: `Double Round of ${name}`, points: double });
+            breakdown.push({ name: `Double Round of ${name}`, points: double, cards: rankRoundCards(rank, 2) });
         } else if (minPerSuit >= 1) {
-            breakdown.push({ name: `Round of ${name}`, points: single });
+            breakdown.push({ name: `Round of ${name}`, points: single, cards: rankRoundCards(rank, 1) });
         }
     }
 }
@@ -210,10 +234,10 @@ function addRounds(counts, breakdown) {
 function addPinochle(counts, breakdown) {
     const pinochleCount = Math.min(copies(counts, "Q", "S"), copies(counts, "J", "D"));
     if (pinochleCount >= 3) {
-        breakdown.push({ name: "Triple Pinochle", points: POINTS.TRIPLE_PINOCHLE });
+        breakdown.push({ name: "Triple Pinochle", points: POINTS.TRIPLE_PINOCHLE, cards: pinochleCards(3) });
     } else if (pinochleCount === 2) {
-        breakdown.push({ name: "Double Pinochle", points: POINTS.DOUBLE_PINOCHLE });
+        breakdown.push({ name: "Double Pinochle", points: POINTS.DOUBLE_PINOCHLE, cards: pinochleCards(2) });
     } else if (pinochleCount === 1) {
-        breakdown.push({ name: "Pinochle", points: POINTS.PINOCHLE });
+        breakdown.push({ name: "Pinochle", points: POINTS.PINOCHLE, cards: pinochleCards(1) });
     }
 }

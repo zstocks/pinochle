@@ -21,7 +21,9 @@ const ui = {
     copied: false,
     pendingBid: 0,
     selectedCard: null,
-    activeSuit: "all"
+    activeSuit: "all",
+    calcOpen: false,
+    calcTrump: "none"
 };
 
 let view = null;
@@ -85,6 +87,7 @@ function onMessage(msg) {
             ui.screen = "room";
             ui.error = null;
             reconcileSelection();
+            if (view.game?.phase !== "bidding") ui.calcOpen = false;
             break;
 
         case "error":
@@ -169,6 +172,16 @@ function handleAction(action, data) {
         case "copy-link":
             copyShareLink();
             return;
+
+        case "toggle-calc":
+            ui.calcOpen = !ui.calcOpen;
+            break;
+        case "calc-trump":
+            ui.calcTrump = data.trump;
+            break;
+        case "close-calc":
+            ui.calcOpen = false;
+            break;
 
         case "ready":
             sendAction({ type: "start_game" });

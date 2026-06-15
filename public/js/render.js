@@ -179,12 +179,68 @@ function renderGame() {
         default: center = "";
     }
 
+    const calc = g.phase === "bidding" ? renderMeldCalculator() : "";
     const hand = showHand && g.seats[CTX.view.you].hand ? renderHand() : "";
     return `
         ${statusBar()}
         ${renderTable(center)}
+        ${calc}
         ${hand}
         ${actionBar()}`;
+}
+
+// ----- Meld calculator (bidding phase) ----------------------------------------
+
+// A collapsible helper above the hand: shows the meld this hand would score
+// under no-trump or any one suit, with the cards for each combo. Data comes
+// precomputed from the server (view.game.meldCalc), so it matches real scoring.
+function renderMeldCalculator() {
+    const ui = CTX.ui;
+    const calc = CTX.view.game.meldCalc;
+    if (!calc) return "";
+    if (!ui.calcOpen) {
+        return `<div class="calc-bar"><button class="btn" data-action="toggle-calc">🧮 Meld Calculator</button></div>`;
+    }
+
+    const selected = ui.calcTrump || "none";
+    const options = [["none", "No Trump"], ...SUIT_ORDER.map((s) => [s, SUIT_INFO[s].symbol])];
+    const trumps = options
+        .map(([key, label]) => {
+            const color = key === "none" ? "" : SUIT_INFO[key].color;
+            const active = selected === key ? "active" : "";
+            return `<button class="calc-trump-btn ${color} ${active}" data-action="calc-trump" data-trump="${key}">${label}</button>`;
+        })
+        .join("");
+
+    const data = calc[selected];
+    const combos = data.breakdown.length
+        ? data.breakdown
+              .map(
+                  (b) => `
+            <div class="meld-combo">
+                <div class="combo-cards">${b.cards.map(miniCard).join("")}</div>
+                <div class="combo-meta"><span>${esc(b.name)}</span><span class="combo-pts">${b.points}</span></div>
+            </div>`
+              )
+              .join("")
+        : `<p class="hint">No meld${selected === "none" ? " without a trump suit" : ""}.</p>`;
+
+    return `
+    <div class="calc-panel">
+        <div class="calc-header">
+            <strong>Meld Calculator</strong>
+            <button class="btn" data-action="close-calc">Close</button>
+        </div>
+        <div class="calc-trumps">${trumps}</div>
+        <div class="calc-combos">${combos}</div>
+        <div class="calc-total">Total meld: <strong>${data.total}</strong></div>
+    </div>`;
+}
+
+function miniCard(card) {
+    const { rank, suit } = parseCard(card);
+    const info = SUIT_INFO[suit];
+    return `<span class="mini-card ${info.color}">${rank}${info.symbol}</span>`;
 }
 
 // ----- Table & status ---------------------------------------------------------
