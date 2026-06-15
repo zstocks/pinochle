@@ -30,6 +30,7 @@ const MESSAGE_SCHEMAS = {
     create_room: { name: "string", "seat?": "int" },
     join_room: { code: "string", name: "string", seat: "int" },
     reconnect: { code: "string", token: "string" },
+    peek_room: { code: "string" },
     action: { action: "object" }
 };
 
@@ -148,6 +149,13 @@ export function handleClientMessage({ session, message, roomManager, ownerKey, n
                 broadcast: { code: message.code, events: [] }
             };
         }
+        case "peek_room": {
+            // Read-only look at a room's seats so the join screen can show who's
+            // already seated and which spots are open. Creates no session.
+            const full = roomManager.getState(message.code);
+            if (!full) return { reply: makeError("room not found") };
+            return { reply: makeRoomInfo(full.code, full.phase, full.seats) };
+        }
         case "action": {
             if (!session) return { reply: makeError("you are not in a room") };
             // Inject actor from the session — never trust a client-supplied seat.
@@ -254,6 +262,12 @@ export function makeError(message) {
 
 export function makeJoined(code, token, seat) {
     return { protocol_version: PROTOCOL_VERSION, type: "joined", code, token, seat };
+}
+
+// Seat occupancy for the pre-join screen. `seats` is the room manager's
+// token-free [{seat, name, connected}|null] list.
+export function makeRoomInfo(code, phase, seats) {
+    return { protocol_version: PROTOCOL_VERSION, type: "room_info", code, phase, seats };
 }
 
 export function makeState(view, events) {

@@ -15,6 +15,19 @@ export const SUIT_INFO = {
     H: { symbol: "♥", color: "red", label: "Hearts" }
 };
 
+// Cosmetic seat labels. Engine seats 0/2 are one partnership, 1/3 the other;
+// we present them as the Red team (even seats) and Black team (odd seats). This
+// is display-only — the seat indices and game logic are unchanged.
+export const SEAT_LABELS = ["Red Player 1", "Black Player 1", "Red Player 2", "Black Player 2"];
+
+export function seatLabel(seat) {
+    return SEAT_LABELS[seat];
+}
+
+export function seatTeamColor(seat) {
+    return seat % 2 === 0 ? "red" : "black";
+}
+
 export function suitOf(card) {
     return card.slice(-1);
 }

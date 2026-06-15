@@ -118,6 +118,32 @@ test("a malformed message yields an error reply, not a throw", () => {
     assert.strictEqual(r.reply.type, "error");
 });
 
+test("peek_room returns seat occupancy without a session", () => {
+    const roomManager = createRoomManager();
+    const created = roomManager.createRoom({ name: "Al", now: 0 });
+    roomManager.joinRoom({ code: created.code, name: "Bo", seat: 2, now: 0 });
+
+    const r = handleClientMessage({
+        roomManager, ownerKey: "ip", now: 1, session: null,
+        message: { protocol_version: V, type: "peek_room", code: created.code }
+    });
+    assert.strictEqual(r.reply.type, "room_info");
+    assert.strictEqual(r.reply.phase, "lobby");
+    assert.strictEqual(r.reply.seats[0].name, "Al");
+    assert.strictEqual(r.reply.seats[1], null);
+    assert.strictEqual(r.reply.seats[2].name, "Bo");
+    assert.strictEqual(r.session, undefined);   // peeking doesn't seat you
+});
+
+test("peek_room on an unknown room is an error", () => {
+    const r = handleClientMessage({
+        roomManager: createRoomManager(), ownerKey: "ip", now: 0, session: null,
+        message: { protocol_version: V, type: "peek_room", code: "ZZZZ" }
+    });
+    assert.strictEqual(r.reply.type, "error");
+    assert.match(r.reply.message, /not found/);
+});
+
 // ----- redactStateFor ---------------------------------------------------------
 
 // A hand-built authoritative snapshot mirroring roomManager.getState output,

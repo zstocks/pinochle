@@ -7,14 +7,18 @@ import { render } from "./render.js";
 import { minBid, bidStep } from "./cards.js";
 
 const STORAGE_KEY = "pinochle.session";
+const CREATOR_SEAT = 0;   // the creator takes Red Player 1; others pick the rest
 const root = document.getElementById("app");
 
 const ui = {
     screen: "landing",   // "landing" until we're in a room
+    mode: "home",        // landing sub-screen: "home" | "join"
     name: "",
     code: "",
-    chosenSeat: 0,
+    roomInfo: null,      // seat occupancy from a peek_room, for the join screen
+    chosenSeat: null,
     error: null,
+    copied: false,
     pendingBid: 0,
     selectedCard: null,
     activeSuit: "all"
@@ -23,6 +27,15 @@ const ui = {
 let view = null;
 let status = "connecting";
 let pendingReconnect = false;   // true while a reconnect attempt is outstanding
+
+// A shared link (…/?room=CODE) means "take me straight to this room's join
+// screen". Capture it, then clean the URL so a refresh doesn't re-trigger it.
+let pendingRoomCode = null;
+const roomParam = new URLSearchParams(location.search).get("room");
+if (roomParam) {
+    pendingRoomCode = roomParam.trim().toUpperCase();
+    history.replaceState(null, "", location.pathname);
+}
 
 const net = createConnection({ onMessage, onStatus });
 
@@ -35,10 +48,16 @@ function draw() {
 function onStatus(next) {
     status = next;
     if (next === "open") {
-        const saved = loadSession();
-        if (saved && !view) {
-            pendingReconnect = true;
-            net.send({ type: "reconnect", code: saved.code, token: saved.token });
+        if (pendingRoomCode) {
+            // Explicit join-by-link takes priority over auto-reconnect.
+            net.send({ type: "peek_room", code: pendingRoomCode });
+            pendingRoomCode = null;
+        } else {
+            const saved = loadSession();
+            if (saved && !view) {
+                pendingReconnect = true;
+                net.send({ type: "reconnect", code: saved.code, token: saved.token });
+            }
         }
     }
     draw();
@@ -51,12 +70,23 @@ function onMessage(msg) {
             ui.error = null;
             pendingReconnect = false;
             break;
+
+        case "room_info":
+            ui.roomInfo = { code: msg.code, phase: msg.phase, seats: msg.seats };
+            ui.code = msg.code;
+            ui.mode = "join";
+            ui.screen = "landing";
+            ui.chosenSeat = null;
+            ui.error = null;
+            break;
+
         case "state":
             view = msg.view;
             ui.screen = "room";
             ui.error = null;
             reconcileSelection();
             break;
+
         case "error":
             if (pendingReconnect) {
                 // Our saved token was rejected — start fresh at the landing screen.
@@ -64,9 +94,15 @@ function onMessage(msg) {
                 clearSession();
                 view = null;
                 ui.screen = "landing";
+                ui.mode = "home";
                 ui.error = "Couldn't rejoin your game — it may have ended.";
             } else {
                 ui.error = msg.message;
+                // A failed join is often a seat someone just took — refresh the
+                // seat map so the player can pick another.
+                if (ui.mode === "join" && ui.roomInfo) {
+                    net.send({ type: "peek_room", code: ui.roomInfo.code });
+                }
             }
             break;
     }
@@ -91,30 +127,47 @@ function reconcileSelection() {
 root.addEventListener("click", (event) => {
     const el = event.target.closest("[data-action]");
     if (!el) return;
-    const { action, seat, suit, card } = el.dataset;
-    handleAction(action, { seat, suit, card });
+    handleAction(el.dataset.action, el.dataset);
 });
 
 function handleAction(action, data) {
+    // Snapshot any typed-but-unsent inputs before a re-render wipes them.
+    captureInputs();
+
     switch (action) {
+        case "do-create":
+            net.send({ type: "create_room", name: nameOrDefault(), seat: CREATOR_SEAT });
+            return;
+
+        case "go-join":
+            if (!ui.code) { ui.error = "Enter a room code."; break; }
+            ui.error = null;
+            net.send({ type: "peek_room", code: ui.code });
+            return;
+
         case "choose-seat":
-            // Tapping a seat re-renders the landing screen, so snapshot any
-            // typed-but-unsent name/code first to avoid wiping the inputs.
-            ui.name = document.getElementById("name-input")?.value ?? ui.name;
-            ui.code = document.getElementById("code-input")?.value ?? ui.code;
             ui.chosenSeat = Number(data.seat);
             break;
 
-        case "do-create":
-            ui.name = nameInput();
-            net.send({ type: "create_room", name: ui.name, seat: ui.chosenSeat });
+        case "do-join":
+            if (ui.chosenSeat == null) { ui.error = "Pick an open seat."; break; }
+            net.send({
+                type: "join_room",
+                code: ui.roomInfo.code,
+                name: nameOrDefault(),
+                seat: ui.chosenSeat
+            });
             return;
 
-        case "do-join":
-            ui.name = nameInput();
-            ui.code = codeInput();
-            if (!ui.code) { ui.error = "Enter a room code."; break; }
-            net.send({ type: "join_room", code: ui.code, name: ui.name, seat: ui.chosenSeat });
+        case "back-home":
+            ui.mode = "home";
+            ui.roomInfo = null;
+            ui.chosenSeat = null;
+            ui.error = null;
+            break;
+
+        case "copy-link":
+            copyShareLink();
             return;
 
         case "ready":
@@ -171,6 +224,9 @@ function handleAction(action, data) {
             clearSession();
             view = null;
             ui.screen = "landing";
+            ui.mode = "home";
+            ui.roomInfo = null;
+            ui.chosenSeat = null;
             ui.error = null;
             break;
     }
@@ -181,12 +237,24 @@ function sendAction(action) {
     net.send({ type: "action", action });
 }
 
-function nameInput() {
-    return document.getElementById("name-input")?.value.trim() || "Player";
+function captureInputs() {
+    const name = document.getElementById("name-input");
+    if (name) ui.name = name.value;
+    const code = document.getElementById("code-input");
+    if (code) ui.code = code.value.trim().toUpperCase();
 }
 
-function codeInput() {
-    return document.getElementById("code-input")?.value.trim().toUpperCase() || "";
+function nameOrDefault() {
+    return (ui.name || "").trim() || "Player";
+}
+
+function copyShareLink() {
+    const el = document.getElementById("share-link");
+    if (!el) return;
+    navigator.clipboard?.writeText(el.value).catch(() => { /* clipboard blocked */ });
+    ui.copied = true;
+    draw();
+    setTimeout(() => { ui.copied = false; draw(); }, 2000);
 }
 
 // ----- Session persistence ----------------------------------------------------

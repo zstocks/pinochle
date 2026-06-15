@@ -7,7 +7,9 @@ import {
     hasMarriage,
     marriageSuits,
     minBid,
-    bidStep
+    bidStep,
+    seatLabel,
+    seatTeamColor
 } from "../public/js/cards.js";
 
 test("sortByRank orders A > 10 > K > Q > J", () => {
@@ -43,4 +45,12 @@ test("minBid follows the opening and increment rules", () => {
 test("bidStep is 1 below 60 and 5 at/above", () => {
     assert.strictEqual(bidStep(55), 1);
     assert.strictEqual(bidStep(60), 5);
+});
+
+test("seat labels map to Red/Black teams (even = Red, odd = Black)", () => {
+    assert.deepEqual(
+        [0, 1, 2, 3].map(seatLabel),
+        ["Red Player 1", "Black Player 1", "Red Player 2", "Black Player 2"]
+    );
+    assert.deepEqual([0, 1, 2, 3].map(seatTeamColor), ["red", "black", "red", "black"]);
 });

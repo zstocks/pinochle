@@ -95,14 +95,33 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
 
 .seat-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 14px; }
 .seat-btn {
-    min-height: var(--tap);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 56px;
     border: 2px solid #ccc;
     border-radius: 10px;
     background: #fff;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
     cursor: pointer;
 }
-.seat-btn.active { border-color: var(--accent); background: #e3f0ff; font-weight: 600; }
+.seat-btn .seat-occupant { font-size: 0.75rem; font-weight: 400; color: #666; }
+.seat-btn.red { border-color: var(--red); }
+.seat-btn.black { border-color: #333; }
+.seat-btn.active { box-shadow: inset 0 0 0 3px var(--accent); background: #eaf2ff; }
+.seat-btn.taken { opacity: 0.55; cursor: default; }
+
+/* ----- Share link ----- */
+
+.share { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.share-input {
+    flex: 1; min-height: var(--tap); padding: 8px;
+    border: 1px solid #ccc; border-radius: 8px; font-size: 0.8rem; background: #fff;
+}
+.room-code-line { text-align: center; }
 
 /* ----- Lobby ----- */
 
@@ -114,6 +133,8 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
     background: var(--panel); border-radius: 10px; padding: 12px 14px;
 }
 .lobby-seat.open { opacity: 0.7; }
+.lobby-seat.red { border-left: 5px solid var(--red); }
+.lobby-seat.black { border-left: 5px solid #333; }
 .seat-num { font-weight: 600; }
 
 /* ----- Status bar ----- */

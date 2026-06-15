@@ -14,7 +14,9 @@ import {
     countsBySuit,
     hasMarriage,
     marriageSuits,
-    minBid
+    minBid,
+    seatLabel,
+    seatTeamColor
 } from "./cards.js";
 
 let CTX = { view: null, ui: {}, status: "connecting" };
@@ -40,44 +42,95 @@ export function render(root, ctx) {
 // ----- Screens ----------------------------------------------------------------
 
 function renderLanding() {
+    return CTX.ui.mode === "join" ? renderJoin() : renderHome();
+}
+
+// Step 1: choose to create a game or enter a code to join one.
+function renderHome() {
     const ui = CTX.ui;
+    return `
+    <div class="screen landing">
+        <h1>Pinochle</h1>
+        <div class="panel">
+            <h2>New game</h2>
+            <label class="field">Your name
+                <input id="name-input" type="text" maxlength="20" autocomplete="off" value="${esc(ui.name || "")}">
+            </label>
+            <button class="btn primary big" data-action="do-create">Create game</button>
+        </div>
+        <div class="panel">
+            <h2>Join a game</h2>
+            <label class="field">Room code
+                <input id="code-input" type="text" maxlength="4" autocomplete="off"
+                       autocapitalize="characters" value="${esc(ui.code || "")}">
+            </label>
+            <button class="btn primary big" data-action="go-join">Continue</button>
+        </div>
+        ${ui.error ? `<p class="error">${esc(ui.error)}</p>` : ""}
+    </div>`;
+}
+
+// Step 2 (join path): a peeked room — pick a name and an open seat.
+function renderJoin() {
+    const ui = CTX.ui;
+    const info = ui.roomInfo;
+    if (!info) {
+        return `<div class="screen landing"><h1>Pinochle</h1><p class="hint">Loading room…</p></div>`;
+    }
+    if (info.phase !== "lobby") {
+        return `
+        <div class="screen landing">
+            <h1>Pinochle</h1>
+            <div class="panel">
+                <p>Room <strong>${esc(info.code)}</strong> is no longer open to join.</p>
+                <button class="btn big" data-action="back-home">Back</button>
+            </div>
+        </div>`;
+    }
+
     const seatButtons = [0, 1, 2, 3]
-        .map(
-            (i) =>
-                `<button class="seat-btn ${ui.chosenSeat === i ? "active" : ""}" data-action="choose-seat" data-seat="${i}">Seat ${i + 1}</button>`
-        )
+        .map((i) => {
+            const taken = info.seats[i];
+            const color = seatTeamColor(i);
+            if (taken) {
+                return `<button class="seat-btn ${color} taken" disabled>
+                    <span>${seatLabel(i)}</span><span class="seat-occupant">${esc(taken.name)}</span>
+                </button>`;
+            }
+            const active = ui.chosenSeat === i ? "active" : "";
+            return `<button class="seat-btn ${color} ${active}" data-action="choose-seat" data-seat="${i}">
+                <span>${seatLabel(i)}</span><span class="seat-occupant">open</span>
+            </button>`;
+        })
         .join("");
 
     return `
     <div class="screen landing">
         <h1>Pinochle</h1>
         <div class="panel">
+            <p class="room-code-line">Joining room <strong>${esc(info.code)}</strong></p>
             <label class="field">Your name
                 <input id="name-input" type="text" maxlength="20" autocomplete="off" value="${esc(ui.name || "")}">
             </label>
-            <p class="hint">Pick your seat (seats 1 &amp; 3 are partners; 2 &amp; 4 are partners):</p>
+            <p class="hint">Pick an open seat:</p>
             <div class="seat-buttons">${seatButtons}</div>
-            <button class="btn primary big" data-action="do-create">Create new game</button>
-        </div>
-        <div class="panel">
-            <label class="field">Room code
-                <input id="code-input" type="text" maxlength="4" autocomplete="off"
-                       autocapitalize="characters" value="${esc(ui.code || "")}">
-            </label>
             <button class="btn primary big" data-action="do-join">Join game</button>
+            <button class="btn" data-action="back-home">Back</button>
+            ${ui.error ? `<p class="error">${esc(ui.error)}</p>` : ""}
         </div>
-        ${ui.error ? `<p class="error">${esc(ui.error)}</p>` : ""}
     </div>`;
 }
 
 function renderLobby() {
     const view = CTX.view;
+    const shareUrl = `${location.origin}/?room=${encodeURIComponent(view.code)}`;
     const seats = [0, 1, 2, 3]
         .map((i) => {
             const p = view.players[i];
             const you = i === view.you ? " (you)" : "";
-            return `<li class="lobby-seat ${p ? "filled" : "open"}">
-                <span class="seat-num">Seat ${i + 1}</span>
+            const color = seatTeamColor(i);
+            return `<li class="lobby-seat ${p ? "filled" : "open"} ${color}">
+                <span class="seat-num">${seatLabel(i)}</span>
                 <span class="seat-occupant">${p ? esc(p.name) + you : "(open)"}</span>
             </li>`;
         })
@@ -87,9 +140,12 @@ function renderLobby() {
     <div class="screen lobby">
         <h1>Pinochle</h1>
         <p class="room-code">Room code <strong>${esc(view.code)}</strong></p>
-        <p class="hint">Share this code. The game begins when all four seats are filled.</p>
+        <div class="share">
+            <input id="share-link" class="share-input" type="text" readonly value="${esc(shareUrl)}">
+            <button class="btn" data-action="copy-link">${CTX.ui.copied ? "Copied!" : "Copy link"}</button>
+        </div>
+        <p class="hint">Share the code or link. The game begins when all four seats are filled.</p>
         <ul class="seat-list">${seats}</ul>
-        <p class="hint">Partners: seats 1 &amp; 3, and seats 2 &amp; 4.</p>
     </div>`;
 }
 
