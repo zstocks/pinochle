@@ -74,8 +74,10 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
     border-radius: 10px;
 }
 
-.hint { color: #555; font-size: 0.9rem; margin: 6px 0; }
-.panel .hint { color: #555; }
+/* Hints default to near-white so they read on the dark felt... */
+.hint { color: rgba(255, 255, 255, 0.92); font-size: 0.9rem; margin: 6px 0; }
+/* ...but stay dark on the light cream surfaces (panels + the calc panel). */
+.panel .hint, .calc-panel .hint { color: #555; }
 .error { color: #ffd5d5; background: #7a1f1f; padding: 10px; border-radius: 8px; text-align: center; }
 
 /* ----- Panels / screens ----- */
