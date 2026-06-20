@@ -384,31 +384,64 @@ function centerMeld() {
     const view = CTX.view;
     const g = view.game;
     const youReady = g.ready[view.you];
-    const mine = g.meld.declared[view.you];
-
-    const teamRow = (team) => {
-        const total = g.meld.teamTotals[team];
-        const shown = total != null;
-        return `<div class="meld-team">
-            <strong>${teamLabel(team)}</strong>: ${shown ? total : "<em>hidden (under 20)</em>"}
-        </div>`;
-    };
-    const breakdown = mine && mine.breakdown.length
-        ? `<ul class="meld-breakdown">${mine.breakdown
-              .map((b) => `<li><span>${esc(b.name)}</span><span>${b.points}</span></li>`)
-              .join("")}</ul>`
-        : `<p class="hint">No meld in your hand.</p>`;
+    const us = teamKey(view.you);
 
     return `
-    <div class="panel">
+    <div class="panel meld-panel">
         <h2>Meld</h2>
-        ${teamRow("team_A")}
-        ${teamRow("team_B")}
-        <h3>Your meld: ${mine ? mine.total : 0}</h3>
-        ${breakdown}
+        <div class="meld-review">
+            ${meldTeamBlock(us)}
+            ${meldTeamBlock(otherTeam(us))}
+        </div>
         <button class="btn primary big" data-action="ack-meld" ${youReady ? "disabled" : ""}>
             ${youReady ? "Waiting…" : "Continue"}
         </button>
+    </div>`;
+}
+
+// One team's meld as laid on the table: each partner's full breakdown (with
+// card symbols) plus the team total. A team under 20 lays down nothing, so we
+// only ever see what the redacted view exposes — our own hand, and any team
+// that reached the 20-point show threshold.
+function meldTeamBlock(team) {
+    const g = CTX.view.game;
+    const total = g.meld.teamTotals[team];           // number, or null when hidden
+    const seats = team === "team_A" ? [0, 2] : [1, 3];
+    const label = team === teamKey(CTX.view.you) ? "Your team" : "Opponents";
+
+    const visible = seats.filter((s) => g.meld.declared[s]);
+    let body;
+    if (visible.length) {
+        body = visible.map((s) => meldPlayerBlock(s, g.meld.declared[s])).join("");
+        if (total == null) body += `<p class="hint">Team total under 20 — not laid down.</p>`;
+    } else {
+        body = `<p class="hint">Under 20 — no meld shown.</p>`;
+    }
+
+    return `
+    <div class="meld-team-block">
+        <div class="meld-team-head"><strong>${label}</strong><span>${total != null ? total : "—"}</span></div>
+        ${body}
+    </div>`;
+}
+
+function meldPlayerBlock(seat, meld) {
+    const who = seat === CTX.view.you ? `${playerName(seat)} (you)` : playerName(seat);
+    const combos = meld.breakdown.length
+        ? meld.breakdown
+              .map(
+                  (b) => `
+            <div class="meld-combo">
+                <div class="combo-cards">${b.cards.map(miniCard).join("")}</div>
+                <div class="combo-meta"><span>${esc(b.name)}</span><span class="combo-pts">${b.points}</span></div>
+            </div>`
+              )
+              .join("")
+        : `<p class="hint">No meld.</p>`;
+    return `
+    <div class="meld-player">
+        <div class="meld-player-head"><span>${who}</span><span class="meld-player-total">${meld.total}</span></div>
+        ${combos}
     </div>`;
 }
 

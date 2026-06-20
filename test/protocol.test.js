@@ -150,7 +150,7 @@ test("peek_room on an unknown room is an error", () => {
 // with a game in the meld phase: team_A (seats 0,2) at 24 (shown), team_B
 // (seats 1,3) at 8 (hidden).
 function meldPhaseSnapshot() {
-    const seatMeld = (total) => ({ total, breakdown: [{ name: "x", points: total }] });
+    const seatMeld = (total) => ({ total, breakdown: [{ name: "x", points: total, cards: ["KS", "QS"] }] });
     return {
         code: "ABCD",
         phase: "playing",
@@ -212,6 +212,11 @@ test("you always see your own meld breakdown even when your team is below the th
     assert.ok(view.game.meld.declared[1]);                   // own breakdown
     assert.strictEqual(view.game.meld.declared[3], null);    // partner hidden (team < 20)
     assert.strictEqual(view.game.meld.teamTotals.team_B, null);
+    // The opponents' team is shown (24), so seat 1 sees both of their breakdowns
+    // laid on the table — with cards, which the meld review renders.
+    assert.ok(view.game.meld.declared[0]);
+    assert.ok(view.game.meld.declared[2]);
+    assert.ok(Array.isArray(view.game.meld.declared[0].breakdown[0].cards));
 });
 
 test("the current player's view includes their legal plays; others' do not", () => {

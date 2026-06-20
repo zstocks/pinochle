@@ -197,11 +197,23 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
 .suit-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .suit-pick { font-size: 1.1rem; }
 
-/* ----- Meld ----- */
+/* ----- Meld review ----- */
 
-.meld-team { padding: 6px 0; border-bottom: 1px solid #ddd; }
-.meld-breakdown { list-style: none; padding: 0; margin: 8px 0; }
-.meld-breakdown li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dotted #ccc; }
+.meld-panel { text-align: left; }
+.meld-review { max-height: 46vh; overflow-y: auto; margin-bottom: 10px; }
+.meld-team-block { margin-bottom: 14px; }
+.meld-team-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 1.05rem; padding-bottom: 4px; margin-bottom: 6px;
+    border-bottom: 2px solid #bbb;
+}
+.meld-team-head span { font-weight: 700; }
+.meld-player { margin: 6px 0 10px; }
+.meld-player-head {
+    display: flex; justify-content: space-between;
+    font-weight: 600; font-size: 0.9rem; color: #333; margin-bottom: 2px;
+}
+.meld-player-total { color: #555; }
 .result p { margin: 4px 0; }
 .ready-count { text-align: center; color: #555; }
 
