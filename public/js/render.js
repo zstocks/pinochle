@@ -26,7 +26,11 @@ export function render(root, ctx) {
     const { view, ui } = ctx;
 
     let html;
-    if (!view || ui.screen === "landing") {
+    if (ui.reviewTrick && view && view.game) {
+        // A trick just finished: hold the four cards on the table for a beat
+        // before the (already-advanced) state is shown.
+        html = renderReview();
+    } else if (!view || ui.screen === "landing") {
         html = renderLanding();
     } else if (view.phase === "lobby") {
         html = renderLobby();
@@ -180,13 +184,49 @@ function renderGame() {
     }
 
     const calc = g.phase === "bidding" ? renderMeldCalculator() : "";
+    const piles = g.phase === "tricks" ? renderTrickPiles() : "";
     const hand = showHand && g.seats[CTX.view.you].hand ? renderHand() : "";
     return `
         ${statusBar()}
         ${renderTable(center)}
         ${calc}
+        ${piles}
         ${hand}
         ${actionBar()}`;
+}
+
+// The completed trick held on the table during the between-tricks countdown.
+function renderReview() {
+    const t = CTX.ui.reviewTrick;
+    const cards = t.cards
+        .map(
+            (p) => `
+        <div class="trick-card ${p.seat === t.winner ? "winner" : ""}">
+            ${cardFace(p.card, {})}
+            <span class="trick-who">${playerName(p.seat)}${p.seat === t.winner ? " ✓" : ""}</span>
+        </div>`
+        )
+        .join("");
+    const center = `
+        <div class="trick-area">${cards}</div>
+        <div class="countdown">Next trick in ${CTX.ui.reviewCount}…</div>`;
+    return `${statusBar()}${renderTable(center)}`;
+}
+
+// Two piles above the hand showing how many tricks each team has taken.
+function renderTrickPiles() {
+    const completed = CTX.view.game.tricks.completed;
+    let red = 0;
+    let black = 0;
+    for (const t of completed) {
+        if (teamKey(t.winner) === "team_A") red += 1;
+        else black += 1;
+    }
+    return `
+    <div class="trick-piles">
+        <div class="pile red"><div class="pile-label">Red · Tricks Won</div><div class="pile-count">${red}</div></div>
+        <div class="pile black"><div class="pile-label">Black · Tricks Won</div><div class="pile-count">${black}</div></div>
+    </div>`;
 }
 
 // ----- Meld calculator (bidding phase) ----------------------------------------
@@ -447,13 +487,18 @@ function meldPlayerBlock(seat, meld) {
 
 function centerTricks() {
     const g = CTX.view.game;
+    if (g.tricks.currentTrick.length === 0) {
+        const leader = g.currentPlayer;
+        const text = leader === CTX.view.you ? "Your lead" : `Waiting for ${playerName(leader)} to lead…`;
+        return `<div class="trick-area"><span class="hint">${text}</span></div>`;
+    }
     const played = g.tricks.currentTrick
         .map(
             (p) =>
                 `<div class="trick-card">${cardFace(p.card, {})}<span class="trick-who">${playerName(p.seat)}</span></div>`
         )
         .join("");
-    return `<div class="trick-area">${played || '<span class="hint">Waiting for the lead…</span>'}</div>`;
+    return `<div class="trick-area">${played}</div>`;
 }
 
 // ----- Hand & action bar ------------------------------------------------------

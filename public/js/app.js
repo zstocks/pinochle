@@ -8,6 +8,7 @@ import { minBid, bidStep } from "./cards.js";
 
 const STORAGE_KEY = "pinochle.session";
 const CREATOR_SEAT = 0;   // the creator takes Red Player 1; others pick the rest
+const TRICK_REVIEW_SECONDS = 5;   // how long a completed trick stays on the table
 const root = document.getElementById("app");
 
 const ui = {
@@ -23,12 +24,15 @@ const ui = {
     selectedCard: null,
     activeSuit: "all",
     calcOpen: false,
-    calcTrump: "none"
+    calcTrump: "none",
+    reviewTrick: null,   // a just-finished trick held on the table during the countdown
+    reviewCount: 0
 };
 
 let view = null;
 let status = "connecting";
 let pendingReconnect = false;   // true while a reconnect attempt is outstanding
+let reviewTimer = null;
 
 // A shared link (…/?room=CODE) means "take me straight to this room's join
 // screen". Capture it, then clean the URL so a refresh doesn't re-trigger it.
@@ -88,6 +92,7 @@ function onMessage(msg) {
             ui.error = null;
             reconcileSelection();
             if (view.game?.phase !== "bidding") ui.calcOpen = false;
+            maybeReviewTrick(msg.events);
             break;
 
         case "error":
@@ -110,6 +115,29 @@ function onMessage(msg) {
             break;
     }
     draw();
+}
+
+// When a trick just completed, hold its four cards on the table for a few
+// seconds with a countdown before the (already-advanced) state is shown. Every
+// client does this, so no one acts during the window.
+function maybeReviewTrick(events) {
+    const won = events && events.find((e) => e.type === "trick_won");
+    if (!won) return;
+    const completed = view.game?.tricks?.completed;
+    if (!completed || completed.length === 0) return;
+
+    clearInterval(reviewTimer);
+    ui.reviewTrick = completed[completed.length - 1];   // { cards, winner }
+    ui.reviewCount = TRICK_REVIEW_SECONDS;
+    reviewTimer = setInterval(() => {
+        ui.reviewCount -= 1;
+        if (ui.reviewCount <= 0) {
+            clearInterval(reviewTimer);
+            reviewTimer = null;
+            ui.reviewTrick = null;
+        }
+        draw();
+    }, 1000);
 }
 
 // Drop a stale card selection if it's no longer our turn or no longer legal.
@@ -235,6 +263,9 @@ function handleAction(action, data) {
 
         case "new-game":
             clearSession();
+            clearInterval(reviewTimer);
+            reviewTimer = null;
+            ui.reviewTrick = null;
             view = null;
             ui.screen = "landing";
             ui.mode = "home";
