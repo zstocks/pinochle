@@ -8,7 +8,7 @@ import { minBid, bidStep } from "./cards.js";
 
 const STORAGE_KEY = "pinochle.session";
 const CREATOR_SEAT = 0;   // the creator takes Red Player 1; others pick the rest
-const TRICK_REVIEW_SECONDS = 5;   // how long a completed trick stays on the table
+const TRICK_REVIEW_SECONDS = 3;   // how long a completed trick stays on the table
 const root = document.getElementById("app");
 
 const ui = {

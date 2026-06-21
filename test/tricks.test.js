@@ -25,6 +25,12 @@ test("canClaimRemaining: false with an empty hand", () => {
     assert.strictEqual(canClaimRemaining(seats, 0, "S"), false);
 });
 
+test("canClaimRemaining: false on the last trick (one card left)", () => {
+    // Even with all-trump and no opponent trump, the final trick can't be claimed.
+    const seats = seatsWith([["AS"], ["AH"], ["AD"], ["AC"]]);
+    assert.strictEqual(canClaimRemaining(seats, 0, "S"), false);
+});
+
 // legalPlays
 test("leading a trick — any card is legal", () => {
     const hand = ["AS", "KS", "QS", "JS"];

@@ -370,10 +370,14 @@ function handResultSummary() {
         <tr class="note-row"><td colspan="4">${teamNote(r, team, isDecl, meld, counters)}</td></tr>`;
     };
 
+    const declTeam = r.declarerTeam === "team_A" ? "Red" : "Black";
+    const bidLine = r.dealerNoMarriage ? "" : `<p class="bid-line">${declTeam} bid <strong>${r.bid}</strong></p>`;
+
     return `
     <div class="result">
         <h2>Hand result</h2>
         ${resultHeadline(r)}
+        ${bidLine}
         <table class="result-table">
             <thead><tr><th>Team</th><th>Meld</th><th>Ctrs</th><th>Score</th></tr></thead>
             <tbody>${row("team_A")}${row("team_B")}</tbody>
@@ -390,15 +394,19 @@ function resultHeadline(r) {
     if (r.dealerNoMarriage) {
         return `<p class="result-headline">Dealer took at 50 with no marriage — no tricks played.</p>`;
     }
-    const dealer = r.declarerTeam === "team_A" ? "Red" : "Black";
-    return `<p class="result-headline">${dealer} bid ${r.bid}</p>`;
+    return "";
 }
 
 // Plain-language note for how a team's score came about.
 function teamNote(r, team, isDecl, meld, counters) {
     if (isDecl) {
         if (r.dealerNoMarriage) return "Set — dealer held no marriage";
-        if (r.declarerSet) return meld == null ? "Set — under 20 meld" : "Set — short on counters";
+        if (r.declarerSet) {
+            if (meld == null) return "Set — under 20 meld";
+            // Show the shortfall: they needed max(20, bid − meld) counters.
+            const needed = Math.max(20, r.bid - meld);
+            return `Set — pulled ${counters}, needed ${needed}`;
+        }
         return "Made the bid";
     }
     if (r.dealerNoMarriage) return meld != null ? "Saved meld" : "No meld saved";

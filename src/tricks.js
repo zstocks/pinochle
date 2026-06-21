@@ -133,10 +133,13 @@ export function trickWinner(trick, trump) {
  *
  * `seats` is the engine state's seats array ([{ hand }, ...]). The caller is
  * responsible for checking it's actually this seat's turn to lead.
+ *
+ * Requires at least two tricks left (hand size >= 2): on the last trick there's
+ * nothing to "claim" — you just play your card.
  */
 export function canClaimRemaining(seats, leaderSeat, trump) {
     const leaderHand = seats[leaderSeat].hand;
-    if (leaderHand.length === 0) return false;
+    if (leaderHand.length < 2) return false;
     if (!leaderHand.every((card) => suitOf(card) === trump)) return false;
     return seats.every(
         (seat, i) => i === leaderSeat || seat.hand.every((card) => suitOf(card) !== trump)

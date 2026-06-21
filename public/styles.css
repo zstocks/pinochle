@@ -233,6 +233,7 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
 .result { text-align: center; }
 .result p { margin: 4px 0; }
 .result-headline { font-weight: 600; margin: 8px 0; }
+.bid-line { font-size: 0.95rem; color: #444; margin: 4px 0; }
 .result-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 8px 0; }
 .result-table th, .result-table td { padding: 3px 6px; }
 .result-table thead th { font-size: 0.66rem; text-transform: uppercase; color: #888; border-bottom: 1px solid #ccc; }
