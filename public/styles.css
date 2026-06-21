@@ -230,8 +230,27 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
     font-weight: 600; font-size: 0.9rem; color: #333; margin-bottom: 2px;
 }
 .meld-player-total { color: #555; }
+.result { text-align: center; }
 .result p { margin: 4px 0; }
+.result-headline { font-weight: 600; margin: 8px 0; }
+.result-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 8px 0; }
+.result-table th, .result-table td { padding: 3px 6px; }
+.result-table thead th { font-size: 0.66rem; text-transform: uppercase; color: #888; border-bottom: 1px solid #ccc; }
+.result-table .team-cell { text-align: left; font-weight: 700; }
+.result-table tr.red .team-cell { color: var(--red); }
+.result-table tr.black .team-cell { color: #000; }
+.result-table .delta { text-align: right; font-weight: 700; }
+.result-table .note-row td { font-size: 0.72rem; color: #666; text-align: left; padding-top: 0; padding-bottom: 8px; }
+.totals { font-size: 0.92rem; font-weight: 600; margin-top: 6px; }
 .ready-count { text-align: center; color: #555; }
+
+/* Trump-attack claim button */
+.claim-bar { margin: 6px 0; }
+.btn.claim {
+    width: 100%;
+    background: linear-gradient(180deg, #e0b450, var(--gold));
+    color: #3a2c00; font-weight: 700;
+}
 
 /* ----- Meld calculator ----- */
 

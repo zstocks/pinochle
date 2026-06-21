@@ -122,3 +122,21 @@ export function trickWinner(trick, trump) {
 
     return winning.seat;
 }
+
+/**
+ * Can the seat at `leaderSeat` claim every remaining trick (a "trump attack")?
+ * True when they're holding nothing but trump and no other player holds any
+ * trump at all — in that case they lead trump every trick and no one can ever
+ * beat them, so the rest of the hand is a formality.
+ *
+ * `seats` is the engine state's seats array ([{ hand }, ...]). The caller is
+ * responsible for checking it's actually this seat's turn to lead.
+ */
+export function canClaimRemaining(seats, leaderSeat, trump) {
+    const leaderHand = seats[leaderSeat].hand;
+    if (leaderHand.length === 0) return false;
+    if (!leaderHand.every((card) => suitOf(card) === trump)) return false;
+    return seats.every(
+        (seat, i) => i === leaderSeat || seat.hand.every((card) => suitOf(card) !== trump)
+    );
+}

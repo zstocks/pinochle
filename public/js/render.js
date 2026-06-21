@@ -184,12 +184,16 @@ function renderGame() {
     }
 
     const calc = g.phase === "bidding" ? renderMeldCalculator() : "";
+    const claim = g.phase === "tricks" && g.canClaimRemaining
+        ? `<div class="claim-bar"><button class="btn claim" data-action="claim-trump">⚡ Trump Attack — take the rest</button></div>`
+        : "";
     const piles = g.phase === "tricks" ? renderTrickPiles() : "";
     const hand = showHand && g.seats[CTX.view.you].hand ? renderHand() : "";
     return `
         ${statusBar()}
         ${renderTable(center)}
         ${calc}
+        ${claim}
         ${piles}
         ${hand}
         ${actionBar()}`;
@@ -349,13 +353,60 @@ function handResultSummary() {
     const us = teamKey(view.you);
     const them = otherTeam(us);
     const fmt = (n) => (n > 0 ? `+${n}` : `${n}`);
+
+    const row = (team) => {
+        const isDecl = team === r.declarerTeam;
+        const meld = r.meld[team];                         // null when under 20
+        const counters = r.counters[team];
+        const cls = team === "team_A" ? "red" : "black";
+        const label = (team === "team_A" ? "Red" : "Black") + (team === us ? " (you)" : "");
+        return `
+        <tr class="${cls}">
+            <td class="team-cell">${label}</td>
+            <td>${meld != null ? meld : "—"}</td>
+            <td>${r.dealerNoMarriage ? "—" : counters}</td>
+            <td class="delta">${fmt(r.deltas[team])}</td>
+        </tr>
+        <tr class="note-row"><td colspan="4">${teamNote(r, team, isDecl, meld, counters)}</td></tr>`;
+    };
+
     return `
     <div class="result">
         <h2>Hand result</h2>
-        <p>Us ${fmt(r.deltas[us])} &middot; Them ${fmt(r.deltas[them])}</p>
-        <p class="hint">${r.declarerSet ? "Declarer was set." : ""}</p>
-        <p>Score: Us ${r.scores[us]} &middot; Them ${r.scores[them]}</p>
+        ${resultHeadline(r)}
+        <table class="result-table">
+            <thead><tr><th>Team</th><th>Meld</th><th>Ctrs</th><th>Score</th></tr></thead>
+            <tbody>${row("team_A")}${row("team_B")}</tbody>
+        </table>
+        <p class="totals">Totals — Us ${r.scores[us]} &middot; Them ${r.scores[them]}</p>
     </div>`;
+}
+
+function resultHeadline(r) {
+    if (r.trumpAttack) {
+        const s = SUIT_INFO[r.trumpAttack.trump];
+        return `<p class="result-headline">${playerName(r.trumpAttack.seat)} won all tricks with an excessive amount of <span class="${s.color}">${s.symbol}</span>!</p>`;
+    }
+    if (r.dealerNoMarriage) {
+        return `<p class="result-headline">Dealer took at 50 with no marriage — no tricks played.</p>`;
+    }
+    const dealer = r.declarerTeam === "team_A" ? "Red" : "Black";
+    return `<p class="result-headline">${dealer} bid ${r.bid}</p>`;
+}
+
+// Plain-language note for how a team's score came about.
+function teamNote(r, team, isDecl, meld, counters) {
+    if (isDecl) {
+        if (r.dealerNoMarriage) return "Set — dealer held no marriage";
+        if (r.declarerSet) return meld == null ? "Set — under 20 meld" : "Set — short on counters";
+        return "Made the bid";
+    }
+    if (r.dealerNoMarriage) return meld != null ? "Saved meld" : "No meld saved";
+    const savedCounters = counters >= 20;
+    const savedMeld = meld != null && savedCounters;
+    if (savedMeld) return "Saved meld + counters";
+    if (savedCounters) return "Counters only — meld not saved";
+    return "Saved nothing";
 }
 
 function centerBidding() {

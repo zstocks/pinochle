@@ -1,6 +1,29 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { legalPlays, trickWinner } from "../src/tricks.js";
+import { legalPlays, trickWinner, canClaimRemaining } from "../src/tricks.js";
+
+// canClaimRemaining
+const seatsWith = (hands) => hands.map((hand) => ({ hand }));
+
+test("canClaimRemaining: leader holds only trump and no one else has trump", () => {
+    const seats = seatsWith([["AS", "KS"], ["AH", "10D"], ["AC", "KC"], ["10H", "JD"]]);
+    assert.strictEqual(canClaimRemaining(seats, 0, "S"), true);
+});
+
+test("canClaimRemaining: false when an opponent still holds trump", () => {
+    const seats = seatsWith([["AS", "KS"], ["QS", "10D"], ["AC", "KC"], ["10H", "JD"]]);
+    assert.strictEqual(canClaimRemaining(seats, 0, "S"), false);
+});
+
+test("canClaimRemaining: false when the leader holds a non-trump card", () => {
+    const seats = seatsWith([["AS", "KH"], ["AH", "10D"], ["AC", "KC"], ["10H", "JD"]]);
+    assert.strictEqual(canClaimRemaining(seats, 0, "S"), false);
+});
+
+test("canClaimRemaining: false with an empty hand", () => {
+    const seats = seatsWith([[], [], [], []]);
+    assert.strictEqual(canClaimRemaining(seats, 0, "S"), false);
+});
 
 // legalPlays
 test("leading a trick — any card is legal", () => {

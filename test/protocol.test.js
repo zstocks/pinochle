@@ -238,6 +238,21 @@ test("the current player's view includes their legal plays; others' do not", () 
     assert.strictEqual(redactStateFor(snap, 1).game.legalPlays, null);
 });
 
+test("the leader's view flags an available trump attack", () => {
+    const snap = meldPhaseSnapshot();
+    snap.game.phase = "tricks";
+    snap.game.bidding.trump = "S";
+    snap.game.currentPlayer = 0;
+    snap.game.tricks = { currentTrick: [], ledSuit: null, completed: [], counters: { team_A: 0, team_B: 0 } };
+    snap.game.seats[0].hand = ["AS", "10S"];        // leader: all trump
+    snap.game.seats[1].hand = ["AH", "10H"];        // no one else holds trump
+    snap.game.seats[2].hand = ["AD", "10D"];
+    snap.game.seats[3].hand = ["AC", "10C"];
+
+    assert.strictEqual(redactStateFor(snap, 0).game.canClaimRemaining, true);
+    assert.strictEqual(redactStateFor(snap, 1).game.canClaimRemaining, false);
+});
+
 test("the bidding view includes a meld calculator for the seat's own hand", () => {
     const snap = meldPhaseSnapshot();
     snap.game.phase = "bidding";

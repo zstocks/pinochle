@@ -12,7 +12,7 @@
 // are unit-tested in isolation with no network.
 
 import { teamOf } from "./state.js";
-import { legalPlays } from "./tricks.js";
+import { legalPlays, canClaimRemaining } from "./tricks.js";
 import { computeMeld } from "./meld.js";
 
 export const PROTOCOL_VERSION = 1;
@@ -41,6 +41,7 @@ const ACTION_SCHEMAS = {
     start_game: {},
     pass: {},
     acknowledge_meld: {},
+    claim_remaining: {},
     bid: { amount: "int" },
     declare_trump: { suit: "string" },
     play_card: { card: "string" }
@@ -206,6 +207,13 @@ function redactGame(game, seat) {
             game.phase === "tricks" && game.currentPlayer === seat
                 ? legalPlays(game.seats[seat].hand, game.tricks.currentTrick, game.bidding.trump)
                 : null,
+        // Whether this seat may "trump attack" — leading with nothing but trump
+        // while no opponent holds any. Computed from all hands, so it lives here.
+        canClaimRemaining:
+            game.phase === "tricks" &&
+            game.currentPlayer === seat &&
+            game.tricks.currentTrick.length === 0 &&
+            canClaimRemaining(game.seats, seat, game.bidding.trump),
         // Meld-calculator data for this seat's own hand during bidding: the meld
         // they'd score under each possible trump (and no-trump). Computed by the
         // engine so it always matches actual scoring; the client just displays it.

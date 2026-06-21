@@ -261,3 +261,48 @@ test("actions used in the wrong phase return a player error", () => {
     assert.match(apply(s, { actor: 0, type: "bid", amount: 50 }).error, /not valid during phase/);
     assert.match(apply(s, { actor: 0, type: "play_card", card: "AS" }).error, /not valid during phase/);
 });
+
+// ----- Trump attack (claim_remaining) -----------------------------------------
+
+// A trick-phase state where seat 0 leads holding only trump (spades) and no one
+// else holds any. Counters already collected (20/20) leave room for the 8
+// remaining (all counter cards) + last-trick bonus to sum to 50.
+function trumpAttackState() {
+    const s = createInitialState(NAMES);
+    s.phase = "tricks";
+    s.declarer = 0;
+    s.currentPlayer = 0;
+    s.bidding = { currentBid: 50, highBidder: 0, passed: [false, false, false, false], trump: "S" };
+    s.meld = { declared: [null, null, null, null], teamTotals: { team_A: 40, team_B: 0 } };
+    s.tricks = { currentTrick: [], ledSuit: null, completed: [], counters: { team_A: 20, team_B: 20 } };
+    s.seats[0].hand = ["AS", "10S"];
+    s.seats[1].hand = ["AH", "10H"];
+    s.seats[2].hand = ["AD", "10D"];
+    s.seats[3].hand = ["AC", "10C"];
+    return s;
+}
+
+test("claim_remaining sweeps the rest to the claimer's team and scores the hand", () => {
+    const r = apply(trumpAttackState(), { actor: 0, type: "claim_remaining" });
+    assert.deepEqual(r.state.lastHandResult.trumpAttack, { seat: 0, trump: "S" });
+    // 8 remaining counters + 2 last-trick bonus → team_A 20 + 10 = 30; sums to 50.
+    assert.strictEqual(r.state.lastHandResult.counters.team_A, 30);
+    assert.strictEqual(r.state.lastHandResult.counters.team_B, 20);
+    // Declarer (team_A) makes: meld 40 + counters 30 = +70. Opponents: counters only +20.
+    assert.strictEqual(r.state.lastHandResult.deltas.team_A, 70);
+    assert.strictEqual(r.state.lastHandResult.deltas.team_B, 20);
+    assert.ok(r.events.some((e) => e.type === "trump_attack"));
+    assert.strictEqual(r.state.phase, "dealing");
+});
+
+test("claim_remaining is rejected when an opponent still holds trump", () => {
+    const s = trumpAttackState();
+    s.seats[1].hand = ["KS", "10H"];   // opponent now has a spade
+    assert.match(apply(s, { actor: 0, type: "claim_remaining" }).error, /trump/);
+});
+
+test("claim_remaining is rejected mid-trick (not leading)", () => {
+    const s = trumpAttackState();
+    s.tricks.currentTrick = [{ seat: 3, card: "AC" }];
+    assert.match(apply(s, { actor: 0, type: "claim_remaining" }).error, /leading/);
+});

@@ -25,7 +25,7 @@
 
 import { parseCard, isCounter } from "./cards.js";
 import { teamOf, nextSeat, dealHand } from "./state.js";
-import { legalPlays, trickWinner } from "./tricks.js";
+import { legalPlays, trickWinner, canClaimRemaining } from "./tricks.js";
 import { computeMeld } from "./meld.js";
 import { scoreHand, scoreDealerNoMarriage } from "./scoring.js";
 
@@ -50,7 +50,8 @@ const ACTION_TYPES = new Set([
     "pass",
     "declare_trump",
     "acknowledge_meld",
-    "play_card"
+    "play_card",
+    "claim_remaining"
 ]);
 
 // ----- Public API -------------------------------------------------------------
@@ -82,6 +83,7 @@ export function apply(state, action) {
         case "declare_trump":    return handleDeclareTrump(s, action, events);
         case "acknowledge_meld": return handleAcknowledgeMeld(s, action, events);
         case "play_card":        return handlePlayCard(s, action, events);
+        case "claim_remaining":  return handleClaimRemaining(s, action, events);
     }
 }
 
@@ -204,6 +206,41 @@ function handlePlayCard(s, { actor, card }, events) {
     return completeTrick(s, events);
 }
 
+// A "trump attack": the leader holds only trump and no opponent holds any, so
+// they're guaranteed every remaining trick. Award all remaining card counters
+// plus the last-trick bonus to their team and score the hand, rather than
+// playing the formality out (rules.md §7 plays this out card-by-card; this is a
+// house shortcut with the same outcome).
+function handleClaimRemaining(s, { actor }, events) {
+    if (s.phase !== "tricks") return wrongPhase(s.phase, "claim_remaining");
+    if (actor !== s.currentPlayer) return { error: "it is not your turn" };
+    if (s.tricks.currentTrick.length !== 0) return { error: "you can only claim while leading a trick" };
+    if (!canClaimRemaining(s.seats, actor, s.bidding.trump)) {
+        return { error: "you can only claim when you hold nothing but trump and no opponent holds any" };
+    }
+
+    let remaining = 0;
+    for (const seat of s.seats) {
+        for (const card of seat.hand) if (isCounter(card)) remaining += 1;
+    }
+    s.tricks.counters[teamOf(actor)] += remaining + LAST_TRICK_BONUS;
+    s.tricks.trumpAttack = { seat: actor, trump: s.bidding.trump };
+    events.push({ type: "trump_attack", seat: actor, trump: s.bidding.trump });
+
+    const counterSum = s.tricks.counters.team_A + s.tricks.counters.team_B;
+    if (counterSum !== TOTAL_COUNTERS) {
+        throw new Error(`counters summed to ${counterSum}, expected ${TOTAL_COUNTERS}`);
+    }
+
+    const result = scoreHand({
+        bid: s.bidding.currentBid,
+        declarerTeam: teamOf(s.declarer),
+        meld: s.meld.teamTotals,
+        counters: s.tricks.counters
+    });
+    return finishHand(s, result, events);
+}
+
 // ----- Auction resolution -----------------------------------------------------
 
 function resolveAuction(s, events) {
@@ -305,7 +342,8 @@ function finishHand(s, result, events) {
         bid: s.bidding.currentBid,
         meld: { ...s.meld.teamTotals },
         counters: { ...s.tricks.counters },
-        dealerNoMarriage: s.dealerNoMarriage
+        dealerNoMarriage: s.dealerNoMarriage,
+        trumpAttack: s.tricks.trumpAttack || null
     };
     events.push({ type: "hand_scored", result: s.lastHandResult });
 

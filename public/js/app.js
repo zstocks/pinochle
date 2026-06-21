@@ -261,6 +261,10 @@ function handleAction(action, data) {
             }
             return;
 
+        case "claim-trump":
+            sendAction({ type: "claim_remaining" });
+            return;
+
         case "new-game":
             clearSession();
             clearInterval(reviewTimer);
