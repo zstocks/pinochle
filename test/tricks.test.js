@@ -56,6 +56,22 @@ test("over-trump required when you can", () => {
     assert.deepStrictEqual(result, ["AH"]);
 });
 
+test("void in led suit, holding trump that can't beat the winning trump — any trump is legal", () => {
+    // The reported lock-up: clubs trump, diamonds led, opponent trumped with 10C.
+    // Player is void in diamonds and holds only jacks of trump (all below the 10),
+    // so they can't over-trump — every jack must be a legal play, not none.
+    const hand = ["JC", "JC", "JC"];
+    const currentTrick = [{ seat: 0, card: "10D" }, { seat: 1, card: "10C" }];
+    const result = legalPlays(hand, currentTrick, "C");
+    assert.deepStrictEqual(result, ["JC", "JC", "JC"]);
+});
+
+test("void in led suit, can over-trump the winning trump — must beat it", () => {
+    const hand = ["AC", "JC"];   // AC beats 10C; JC does not
+    const currentTrick = [{ seat: 0, card: "10D" }, { seat: 1, card: "10C" }];
+    assert.deepStrictEqual(legalPlays(hand, currentTrick, "C"), ["AC"]);
+});
+
 // trickWinner
 test("highest trump wins; tie goes to first-played", () => {
     const trick = [

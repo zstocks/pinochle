@@ -90,14 +90,16 @@ export function legalPlays(hand, currentTrick, trump) {
         if (beaters.length > 0) return beaters;
         return ledSuitCards;
     } else if (trumpCards.length > 0) {
+        // Void in the led suit but holding trump: must play trump. If a trump is
+        // already winning, must over-trump it when able — but if you can't beat
+        // it, any trump is legal (rules.md §7, 1c). Falling through to all trump
+        // here is the fix for the "all cards greyed out" lock-up.
         if (winningCard && suitOf(winningCard) === trump) {
-            return trumpCards.filter((card) =>
-                beats(card, winningCard, ledSuit, trump)
-            );
-        }
-        else {
+            const overTrumps = trumpCards.filter((card) => beats(card, winningCard, ledSuit, trump));
+            if (overTrumps.length > 0) return overTrumps;
             return trumpCards;
         }
+        return trumpCards;
     } else {
         return otherCards;
     }
