@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     sortByRank,
+    compareByRank,
+    outranks,
     groupBySuit,
     countsBySuit,
     hasMarriage,
@@ -14,6 +16,18 @@ import {
 
 test("sortByRank orders A > 10 > K > Q > J", () => {
     assert.deepEqual(sortByRank(["JS", "AS", "QS", "10S", "KS"]), ["AS", "10S", "KS", "QS", "JS"]);
+});
+
+test("compareByRank sorts high to low and is stable for equal ranks", () => {
+    assert.ok(compareByRank("AS", "KS") < 0);   // A before K
+    assert.ok(compareByRank("JS", "10S") > 0);  // J after 10
+    assert.strictEqual(compareByRank("KH", "KS"), 0);
+});
+
+test("outranks compares trick-taking rank (used for over-trump detection)", () => {
+    assert.strictEqual(outranks("AC", "10C"), true);   // ace beats ten
+    assert.strictEqual(outranks("JC", "AC"), false);   // jack can't beat ace
+    assert.strictEqual(outranks("KC", "KC"), false);   // a tie is not a beat
 });
 
 test("groupBySuit splits and sorts each suit", () => {

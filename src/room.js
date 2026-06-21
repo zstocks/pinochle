@@ -162,6 +162,18 @@ export function createRoomManager(config = {}) {
         return { events: result.events };
     }
 
+    // Any seated player may end the game for everyone: destroy the room outright.
+    // Deliberately blunt — no voting, no host concept — so a table can always
+    // bail out and free the seat/owner-cap immediately (rather than waiting for
+    // the idle TTL). The transport notifies the other players and resets them.
+    function leaveRoom({ code, token }) {
+        const room = rooms.get(code);
+        if (!room) return { error: "room not found" };
+        if (seatByToken(room, token) === -1) return { error: "you are not seated in this room" };
+        rooms.delete(code);
+        return { ok: true };
+    }
+
     // --- Reads ---
 
     // Authoritative snapshot for Layer 3 to redact into per-player views. Never
@@ -215,6 +227,7 @@ export function createRoomManager(config = {}) {
         disconnect,
         reconnect,
         applyAction,
+        leaveRoom,
         getState,
         sweep,
         roomCount: () => rooms.size

@@ -39,7 +39,23 @@ export function render(root, ctx) {
         html = renderGame();
     }
 
-    root.innerHTML = `${connectionBanner()}${html}`;
+    root.innerHTML = `${connectionBanner()}${html}${leaveConfirmOverlay()}`;
+}
+
+// A confirmation shown over everything when the player taps "Leave game". Ending
+// the game destroys the room for all four players, so we make them confirm.
+function leaveConfirmOverlay() {
+    if (!CTX.ui.confirmLeave) return "";
+    return `
+    <div class="modal-overlay">
+        <div class="modal">
+            <p>End the game for everyone? This closes the room and can't be undone.</p>
+            <div class="modal-buttons">
+                <button class="btn danger big" data-action="confirm-leave">End game</button>
+                <button class="btn big" data-action="cancel-leave">Cancel</button>
+            </div>
+        </div>
+    </div>`;
 }
 
 // ----- Screens ----------------------------------------------------------------
@@ -149,6 +165,7 @@ function renderLobby() {
         </div>
         <p class="hint">Share the code or link. The game begins when all four seats are filled.</p>
         <ul class="seat-list">${seats}</ul>
+        <button class="btn" data-action="leave-game">Leave room</button>
     </div>`;
 }
 
@@ -204,7 +221,7 @@ function renderReview() {
     const cards = t.cards
         .map(
             (p) => `
-        <div class="trick-card ${p.seat === t.winner ? "winner" : ""}">
+        <div class="trick-card ${p.seat === t.winner ? "winner" : ""}${p.seat === CTX.ui.flashSeat ? " trump-flash" : ""}">
             ${cardFace(p.card, {})}
             <span class="trick-who">${playerName(p.seat)}${p.seat === t.winner ? " ✓" : ""}</span>
         </div>`
@@ -326,6 +343,7 @@ function statusBar() {
         <span>Bid ${g.bidding.currentBid || "—"}</span>
         <span>Us ${g.scores[us]} &middot; Them ${g.scores[otherTeam(us)]}</span>
         <span class="turn-indicator">▶ ${turn}</span>
+        <button class="leave-btn" data-action="leave-game">Leave</button>
     </div>`;
 }
 
@@ -553,7 +571,7 @@ function centerTricks() {
     const played = g.tricks.currentTrick
         .map(
             (p) =>
-                `<div class="trick-card">${cardFace(p.card, {})}<span class="trick-who">${playerName(p.seat)}</span></div>`
+                `<div class="trick-card${p.seat === CTX.ui.flashSeat ? " trump-flash" : ""}">${cardFace(p.card, {})}<span class="trick-who">${playerName(p.seat)}</span></div>`
         )
         .join("");
     return `<div class="trick-area">${played}</div>`;

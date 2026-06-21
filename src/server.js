@@ -22,7 +22,8 @@ import {
     redactStateFor,
     redactEvents,
     makeState,
-    makeError
+    makeError,
+    makeRoomClosed
 } from "./protocol.js";
 
 const MAX_MESSAGE_BYTES = 4 * 1024;     // hard cap on a single inbound frame
@@ -106,6 +107,20 @@ export function createGameServer(options = {}) {
         if (result.session !== undefined) conn.session = result.session;
         if (result.reply) send(ws, result.reply);
         if (result.broadcast) broadcastRoom(result.broadcast.code, result.broadcast.events);
+        if (result.closeRoom) closeRoomForAll(result.closeRoom.code);
+    }
+
+    // A player ended the game: the room is already gone from the manager. Tell
+    // everyone still pointed at it and clear their session so they don't try to
+    // reconnect to a room that no longer exists. Sockets stay open so they can
+    // start or join a new game immediately.
+    function closeRoomForAll(code) {
+        for (const [ws, conn] of conns) {
+            if (conn.session?.code === code) {
+                send(ws, makeRoomClosed("A player ended the game."));
+                conn.session = null;
+            }
+        }
     }
 
     function onClose(ws) {

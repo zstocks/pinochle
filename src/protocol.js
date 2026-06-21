@@ -32,6 +32,7 @@ const MESSAGE_SCHEMAS = {
     join_room: { code: "string", name: "string", seat: "int" },
     reconnect: { code: "string", token: "string" },
     peek_room: { code: "string" },
+    leave_room: {},
     action: { action: "object" }
 };
 
@@ -157,6 +158,13 @@ export function handleClientMessage({ session, message, roomManager, ownerKey, n
             const full = roomManager.getState(message.code);
             if (!full) return { reply: makeError("room not found") };
             return { reply: makeRoomInfo(full.code, full.phase, full.seats) };
+        }
+        case "leave_room": {
+            if (!session) return { reply: makeError("you are not in a room") };
+            const res = roomManager.leaveRoom({ code: session.code, token: session.token });
+            if (res.error) return { reply: makeError(res.error) };
+            // Tell the glue to notify and reset everyone still in the room.
+            return { closeRoom: { code: session.code } };
         }
         case "action": {
             if (!session) return { reply: makeError("you are not in a room") };
@@ -296,6 +304,12 @@ export function makeRoomInfo(code, phase, seats) {
 
 export function makeState(view, events) {
     return { protocol_version: PROTOCOL_VERSION, type: "state", view, events };
+}
+
+// Sent to every player when a room is destroyed (a player ended the game), so
+// their clients drop back to the landing screen.
+export function makeRoomClosed(reason) {
+    return { protocol_version: PROTOCOL_VERSION, type: "room_closed", reason };
 }
 
 function fail(error) {

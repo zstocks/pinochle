@@ -118,6 +118,24 @@ test("a malformed message yields an error reply, not a throw", () => {
     assert.strictEqual(r.reply.type, "error");
 });
 
+test("leave_room destroys the room and signals the glue to close it", () => {
+    const roomManager = createRoomManager();
+    const created = roomManager.createRoom({ name: "A", now: 0 });
+    const session = { code: created.code, seat: 0, token: created.token };
+    const r = handleClientMessage({
+        roomManager, ownerKey: "ip", now: 1, session,
+        message: { protocol_version: V, type: "leave_room" }
+    });
+    assert.deepEqual(r.closeRoom, { code: created.code });
+    assert.strictEqual(roomManager.getState(created.code), null);
+});
+
+test("leave_room without a session is rejected", () => {
+    const c = ctx();
+    const r = handleClientMessage({ ...c, message: { protocol_version: V, type: "leave_room" } });
+    assert.match(r.reply.message, /not in a room/);
+});
+
 test("peek_room returns seat occupancy without a session", () => {
     const roomManager = createRoomManager();
     const created = roomManager.createRoom({ name: "Al", now: 0 });

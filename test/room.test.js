@@ -190,6 +190,31 @@ test("sweep expires idle rooms", () => {
     assert.strictEqual(mgr.getState(r.code), null);
 });
 
+// ----- Leaving / ending a game ------------------------------------------------
+
+test("leaveRoom destroys the room for everyone", () => {
+    const mgr = newManager();
+    const { code, tokens } = fillRoom(mgr, 0);
+    const res = mgr.leaveRoom({ code, token: tokens[2] });
+    assert.deepEqual(res, { ok: true });
+    assert.strictEqual(mgr.getState(code), null);
+});
+
+test("leaveRoom frees the owner's active-room cap immediately", () => {
+    const mgr = newManager({ maxRoomsPerOwner: 1 });
+    const first = mgr.createRoom({ name: "A", ownerKey: "ip", now: 0 });
+    assert.match(mgr.createRoom({ name: "B", ownerKey: "ip", now: 0 }).error, /too many/);
+    mgr.leaveRoom({ code: first.code, token: first.token });
+    assert.ok(mgr.createRoom({ name: "B", ownerKey: "ip", now: 0 }).code);
+});
+
+test("leaveRoom rejects an unknown room or a non-member token", () => {
+    const mgr = newManager();
+    const { code } = fillRoom(mgr, 0);
+    assert.match(mgr.leaveRoom({ code: "ZZZZ", token: "x" }).error, /not found/);
+    assert.match(mgr.leaveRoom({ code, token: "not-a-real-token" }).error, /not seated/);
+});
+
 // ----- Caps -------------------------------------------------------------------
 
 test("createRoom respects the global room cap", () => {

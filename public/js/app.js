@@ -27,7 +27,9 @@ const ui = {
     calcOpen: false,
     calcTrump: "none",
     reviewTrick: null,   // a just-finished trick held on the table during the countdown
-    reviewCount: 0
+    reviewCount: 0,
+    flashSeat: null,     // seat whose just-played card should briefly flash gold
+    confirmLeave: false  // showing the "end the game for everyone?" confirmation
 };
 
 let view = null;
@@ -102,15 +104,17 @@ function onMessage(msg) {
             break;
         }
 
+        case "room_closed":
+            // A player ended the game (or our room was torn down). Drop everyone
+            // back to the landing screen.
+            resetToLanding(msg.reason || "The game was ended.");
+            break;
+
         case "error":
             if (pendingReconnect) {
                 // Our saved token was rejected — start fresh at the landing screen.
                 pendingReconnect = false;
-                clearSession();
-                view = null;
-                ui.screen = "landing";
-                ui.mode = "home";
-                ui.error = "Couldn't rejoin your game — it may have ended.";
+                resetToLanding("Couldn't rejoin your game — it may have ended.");
             } else {
                 ui.error = msg.message;
                 // A failed join is often a seat someone just took — refresh the
@@ -224,6 +228,15 @@ function playCardSound(ev, g, hasTrickWon) {
         // else: trump that can't beat the standing trump → no escalation (flip)
     }
     play(cue);
+    if (cue.startsWith("trump-")) flashTrump(ev.seat);
+}
+
+// Briefly mark a seat's just-played card so the renderer flashes it gold. Cleared
+// on the next tick so the one-shot CSS animation doesn't replay on later renders
+// (e.g. the per-second trick-review countdown).
+function flashTrump(seat) {
+    ui.flashSeat = seat;
+    setTimeout(() => { ui.flashSeat = null; }, 0);
 }
 
 function flushDeferredSounds() {
@@ -262,7 +275,8 @@ function handleAction(action, data) {
 
     switch (action) {
         case "do-create":
-            net.send({ type: "create_room", name: nameOrDefault(), seat: CREATOR_SEAT });
+            if (!ui.name.trim()) { ui.error = "Enter your name."; break; }
+            net.send({ type: "create_room", name: ui.name.trim(), seat: CREATOR_SEAT });
             return;
 
         case "go-join":
@@ -276,11 +290,12 @@ function handleAction(action, data) {
             break;
 
         case "do-join":
+            if (!ui.name.trim()) { ui.error = "Enter your name."; break; }
             if (ui.chosenSeat == null) { ui.error = "Pick an open seat."; break; }
             net.send({
                 type: "join_room",
                 code: ui.roomInfo.code,
-                name: nameOrDefault(),
+                name: ui.name.trim(),
                 seat: ui.chosenSeat
             });
             return;
@@ -367,21 +382,43 @@ function handleAction(action, data) {
             sendAction({ type: "claim_remaining" });
             return;
 
+        case "leave-game":
+            ui.confirmLeave = true;
+            break;
+        case "cancel-leave":
+            ui.confirmLeave = false;
+            break;
+        case "confirm-leave":
+            // Destroy the room server-side, then drop ourselves to the landing
+            // screen immediately (the others get a room_closed broadcast).
+            net.send({ type: "leave_room" });
+            resetToLanding(null);
+            break;
+
         case "new-game":
-            clearSession();
-            clearInterval(reviewTimer);
-            reviewTimer = null;
-            ui.reviewTrick = null;
-            deferredSounds = [];
-            view = null;
-            ui.screen = "landing";
-            ui.mode = "home";
-            ui.roomInfo = null;
-            ui.chosenSeat = null;
-            ui.error = null;
+            resetToLanding(null);
             break;
     }
     draw();
+}
+
+// Tear down all in-room client state and return to the landing screen. Used by
+// "New game", "Leave game", a server room_closed, and a rejected reconnect.
+function resetToLanding(errorMessage) {
+    clearSession();
+    clearInterval(reviewTimer);
+    reviewTimer = null;
+    deferredSounds = [];
+    view = null;
+    ui.screen = "landing";
+    ui.mode = "home";
+    ui.roomInfo = null;
+    ui.chosenSeat = null;
+    ui.selectedIndex = null;
+    ui.reviewTrick = null;
+    ui.flashSeat = null;
+    ui.confirmLeave = false;
+    ui.error = errorMessage;
 }
 
 function sendAction(action) {
@@ -393,10 +430,6 @@ function captureInputs() {
     if (name) ui.name = name.value;
     const code = document.getElementById("code-input");
     if (code) ui.code = code.value.trim().toUpperCase();
-}
-
-function nameOrDefault() {
-    return (ui.name || "").trim() || "Player";
 }
 
 function copyShareLink() {
