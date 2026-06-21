@@ -45,9 +45,20 @@ function rankIndex(rank) {
     return i === -1 ? RANKS_HIGH_TO_LOW.length : i;
 }
 
+// Comparator for sorting card strings high to low by rank (A > 10 > K > Q > J).
+export function compareByRank(a, b) {
+    return rankIndex(rankOf(a)) - rankIndex(rankOf(b));
+}
+
+// Does card `a` outrank card `b` by trick-taking rank? Suit is ignored — the
+// caller uses this only to compare two cards of the same (trump) suit.
+export function outranks(a, b) {
+    return rankIndex(rankOf(a)) < rankIndex(rankOf(b));
+}
+
 // Sort cards high to low by rank (A > 10 > K > Q > J).
 export function sortByRank(cards) {
-    return [...cards].sort((a, b) => rankIndex(rankOf(a)) - rankIndex(rankOf(b)));
+    return [...cards].sort(compareByRank);
 }
 
 // Group a hand into { S, D, C, H } lists, each sorted high to low.

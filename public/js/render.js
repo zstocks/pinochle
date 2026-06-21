@@ -9,8 +9,7 @@ import {
     SUIT_INFO,
     parseCard,
     suitOf,
-    sortByRank,
-    groupBySuit,
+    compareByRank,
     countsBySuit,
     hasMarriage,
     marriageSuits,
@@ -573,12 +572,16 @@ function renderHand() {
     const counts = countsBySuit(hand);
     const active = ui.activeSuit || "all";
 
+    // Carry each card's hand index so selection targets one specific card, not
+    // every copy of an identical card string.
+    const indexed = hand.map((card, index) => ({ card, index }));
     const isLegal = (card) => !legal || legal.includes(card);
-    const drawCard = (card) =>
+    const drawCard = ({ card, index }) =>
         cardFace(card, {
             selectable: yourTurn && isLegal(card),
-            selected: ui.selectedCard === card,
-            dimmed: yourTurn && legal && !isLegal(card)
+            selected: ui.selectedIndex === index,
+            dimmed: yourTurn && legal && !isLegal(card),
+            index
         });
 
     const tabs = ["all", ...SUIT_ORDER]
@@ -598,21 +601,24 @@ function renderHand() {
         })
         .join("");
 
+    const inSuit = (suit) =>
+        indexed.filter((it) => suitOf(it.card) === suit).sort((a, b) => compareByRank(a.card, b.card));
+
     let body;
     if (active === "all") {
-        const groups = groupBySuit(hand);
-        body = SUIT_ORDER.filter((s) => groups[s].length)
+        body = SUIT_ORDER.map((s) => ({ s, items: inSuit(s) }))
+            .filter(({ items }) => items.length)
             .map(
-                (s) =>
+                ({ s, items }) =>
                     `<div class="suit-row">
                         <span class="suit-row-label ${SUIT_INFO[s].color}">${SUIT_INFO[s].symbol}</span>
-                        <div class="card-row">${groups[s].map(drawCard).join("")}</div>
+                        <div class="card-row">${items.map(drawCard).join("")}</div>
                     </div>`
             )
             .join("");
     } else {
-        const cards = sortByRank(hand.filter((c) => suitOf(c) === active));
-        body = `<div class="card-row single">${cards.map(drawCard).join("") || '<span class="hint">No cards in this suit</span>'}</div>`;
+        const items = inSuit(active);
+        body = `<div class="card-row single">${items.map(drawCard).join("") || '<span class="hint">No cards in this suit</span>'}</div>`;
     }
 
     return `
@@ -625,18 +631,22 @@ function renderHand() {
 function actionBar() {
     const g = CTX.view.game;
     if (g.phase !== "tricks" || g.currentPlayer !== CTX.view.you) return "";
-    if (CTX.ui.selectedCard) {
-        const { rank, suit } = parseCard(CTX.ui.selectedCard);
-        return `<div class="action-bar">
-            <button class="btn primary big" data-action="play-card">Play ${rank}${SUIT_INFO[suit].symbol}</button>
-        </div>`;
+    if (CTX.ui.selectedIndex != null) {
+        const hand = g.seats[CTX.view.you].hand || [];
+        const card = hand[CTX.ui.selectedIndex];
+        if (card) {
+            const { rank, suit } = parseCard(card);
+            return `<div class="action-bar">
+                <button class="btn primary big" data-action="play-card">Play ${rank}${SUIT_INFO[suit].symbol}</button>
+            </div>`;
+        }
     }
     return `<div class="action-bar hint">Select a card to play</div>`;
 }
 
 // ----- Card rendering ---------------------------------------------------------
 
-function cardFace(card, { selectable, selected, dimmed }) {
+function cardFace(card, { selectable, selected, dimmed, index } = {}) {
     const { rank, suit } = parseCard(card);
     const info = SUIT_INFO[suit];
     const cls = [
@@ -648,7 +658,7 @@ function cardFace(card, { selectable, selected, dimmed }) {
     ]
         .filter(Boolean)
         .join(" ");
-    const data = selectable ? `data-action="select-card" data-card="${card}"` : "";
+    const data = selectable ? `data-action="select-card" data-index="${index}"` : "";
     return `<div class="${cls}" ${data}>
         <span class="card-rank">${rank}</span>
         <span class="card-suit">${info.symbol}</span>

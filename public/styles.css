@@ -184,9 +184,20 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
 /* ----- Trick area ----- */
 
 .trick-area { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; min-height: var(--card-h); }
-.trick-card { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+/* Mobile: force a consistent 2-over-2 layout so the last card never wraps off on
+   its own when a player's name is long. Desktop restores the natural single row
+   (see the min-width override below). */
+.trick-card {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    flex: 0 0 calc(50% - 5px);
+}
 .trick-card.winner { outline: 3px solid var(--gold); border-radius: 8px; padding: 2px; }
-.trick-who { color: #fff; font-size: 0.7rem; }
+.trick-who { color: #fff; font-size: 0.7rem; text-align: center; overflow-wrap: anywhere; max-width: 100%; }
+
+@media (min-width: 560px) {
+    /* Desktop (the app is a fixed 560px column here): let all cards sit in one row. */
+    .trick-card { flex: 0 0 auto; }
+}
 .countdown { text-align: center; color: var(--gold); font-weight: 700; font-size: 1.1rem; margin-top: 12px; }
 
 /* ----- Tricks-won piles (during trick play) ----- */
@@ -361,7 +372,8 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
 
 .mute-toggle {
     position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    /* Sit below the status bar so it never overlaps the turn indicator. */
+    top: calc(env(safe-area-inset-top, 0px) + 54px);
     right: calc(env(safe-area-inset-right, 0px) + 8px);
     z-index: 1000;
     width: 40px; height: 40px;

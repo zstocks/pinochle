@@ -4,7 +4,7 @@
 
 import { createConnection } from "./net.js";
 import { render } from "./render.js";
-import { minBid, bidStep, suitOf } from "./cards.js";
+import { minBid, bidStep, suitOf, outranks } from "./cards.js";
 import { play } from "./sound.js";
 
 const STORAGE_KEY = "pinochle.session";
@@ -22,7 +22,7 @@ const ui = {
     error: null,
     copied: false,
     pendingBid: 0,
-    selectedCard: null,
+    selectedIndex: null,   // index into your hand of the card you've tapped to play
     activeSuit: "all",
     calcOpen: false,
     calcTrump: "none",
@@ -182,9 +182,11 @@ function playStateSounds(oldView, newView, events) {
     if (becameAvailable) deferredSounds.push("trump-attack");
 }
 
-// A card hit the table. If trump was NOT led and this card trumps in, play the
-// escalation cue (1st trump-in / 1st over-trump / 2nd over-trump); otherwise the
-// ordinary flip.
+// A card hit the table. When trump was NOT led, an escalating cue plays as the
+// trump war develops: the first trump-in (trump-1), then each successive
+// *over-trump* — a trump that beats the highest trump so far (trump-2, then
+// trump-3). A trump that can't beat the standing trump (a forced under-trump) is
+// not an escalation, so it just flips like any other card.
 function playCardSound(ev, g, hasTrickWon) {
     const trump = g.bidding.trump;
     // The trick this card belongs to: still in progress, or — if this card was
@@ -197,14 +199,31 @@ function playCardSound(ev, g, hasTrickWon) {
     if (!trick || trick.length === 0) { play("card-flip"); return; }
 
     const ledSuit = suitOf(trick[0].card);
-    if (trump && ledSuit !== trump && suitOf(ev.card) === trump) {
-        // Count trump played in this trick so far (this card is the latest), in
-        // play order → 1, 2, or 3.
-        const n = Math.min(trick.filter((p) => suitOf(p.card) === trump).length, 3);
-        play(`trump-${n}`);
-    } else {
+    if (!trump || ledSuit === trump || suitOf(ev.card) !== trump) {
         play("card-flip");
+        return;
     }
+
+    // Walk the trick in play order, tracking the highest trump and how many times
+    // it has been beaten, to classify what the just-played (last) card did.
+    let highestTrump = null;
+    let overTrumps = 0;
+    let cue = "card-flip";
+    for (let i = 0; i < trick.length; i++) {
+        const card = trick[i].card;
+        const isLast = i === trick.length - 1;
+        if (suitOf(card) !== trump) continue;
+        if (highestTrump === null) {
+            highestTrump = card;                      // first trump-in
+            if (isLast) cue = "trump-1";
+        } else if (outranks(card, highestTrump)) {
+            overTrumps += 1;                          // a real over-trump
+            highestTrump = card;
+            if (isLast) cue = overTrumps === 1 ? "trump-2" : "trump-3";
+        }
+        // else: trump that can't beat the standing trump → no escalation (flip)
+    }
+    play(cue);
 }
 
 function flushDeferredSounds() {
@@ -212,16 +231,20 @@ function flushDeferredSounds() {
     deferredSounds = [];
 }
 
-// Drop a stale card selection if it's no longer our turn or no longer legal.
+// Drop a stale card selection if it's no longer our turn, the index is gone, or
+// the selected card is no longer a legal play.
 function reconcileSelection() {
     const g = view.game;
     const yourTurn = g && g.phase === "tricks" && g.currentPlayer === view.you;
     if (!yourTurn) {
-        ui.selectedCard = null;
+        ui.selectedIndex = null;
         return;
     }
-    if (ui.selectedCard && g.legalPlays && !g.legalPlays.includes(ui.selectedCard)) {
-        ui.selectedCard = null;
+    if (ui.selectedIndex == null) return;
+    const hand = g.seats[view.you].hand || [];
+    const card = hand[ui.selectedIndex];
+    if (!card || (g.legalPlays && !g.legalPlays.includes(card))) {
+        ui.selectedIndex = null;
     }
 }
 
@@ -322,15 +345,21 @@ function handleAction(action, data) {
             ui.activeSuit = data.suit;
             break;
 
-        case "select-card":
-            if (ui.selectedCard !== data.card) play("card-pick");   // selecting, not deselecting
-            ui.selectedCard = ui.selectedCard === data.card ? null : data.card;
+        case "select-card": {
+            // Identify by hand position, not card string — the hand holds
+            // duplicates, so selecting by value would highlight every copy.
+            const i = Number(data.index);
+            if (ui.selectedIndex !== i) play("card-pick");   // selecting, not deselecting
+            ui.selectedIndex = ui.selectedIndex === i ? null : i;
             break;
+        }
 
         case "play-card":
-            if (ui.selectedCard) {
-                sendAction({ type: "play_card", card: ui.selectedCard });
-                ui.selectedCard = null;
+            if (ui.selectedIndex != null) {
+                const hand = view.game.seats[view.you].hand || [];
+                const card = hand[ui.selectedIndex];
+                if (card) sendAction({ type: "play_card", card });
+                ui.selectedIndex = null;
             }
             return;
 
