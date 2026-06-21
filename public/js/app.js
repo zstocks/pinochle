@@ -4,7 +4,8 @@
 
 import { createConnection } from "./net.js";
 import { render } from "./render.js";
-import { minBid, bidStep } from "./cards.js";
+import { minBid, bidStep, suitOf } from "./cards.js";
+import { play } from "./sound.js";
 
 const STORAGE_KEY = "pinochle.session";
 const CREATOR_SEAT = 0;   // the creator takes Red Player 1; others pick the rest
@@ -33,6 +34,9 @@ let view = null;
 let status = "connecting";
 let pendingReconnect = false;   // true while a reconnect attempt is outstanding
 let reviewTimer = null;
+// Sounds that should land when the trick-review countdown clears (so they match
+// the moment the button/result actually appears), not when the state arrived.
+let deferredSounds = [];
 
 // A shared link (…/?room=CODE) means "take me straight to this room's join
 // screen". Capture it, then clean the URL so a refresh doesn't re-trigger it.
@@ -86,14 +90,17 @@ function onMessage(msg) {
             ui.error = null;
             break;
 
-        case "state":
+        case "state": {
+            const oldView = view;
             view = msg.view;
             ui.screen = "room";
             ui.error = null;
             reconcileSelection();
             if (view.game?.phase !== "bidding") ui.calcOpen = false;
+            playStateSounds(oldView, view, msg.events);
             maybeReviewTrick(msg.events);
             break;
+        }
 
         case "error":
             if (pendingReconnect) {
@@ -135,9 +142,74 @@ function maybeReviewTrick(events) {
             clearInterval(reviewTimer);
             reviewTimer = null;
             ui.reviewTrick = null;
+            flushDeferredSounds();   // trump-attack / hand-end land as the next screen shows
         }
         draw();
     }, 1000);
+}
+
+// ----- Sound triggers ---------------------------------------------------------
+
+// Turn the broadcast's events (and the before/after view) into sound cues. Most
+// fire immediately; cues tied to UI that only appears after the trick-review
+// countdown (the Trump Attack button, the hand-result screen) are deferred.
+function playStateSounds(oldView, newView, events) {
+    if (!events || !newView || !newView.game) return;
+    const g = newView.game;
+    const hasTrickWon = events.some((e) => e.type === "trick_won");
+
+    for (const ev of events) {
+        switch (ev.type) {
+            case "hand_dealt": play("card-shuffle"); break;
+            case "bid_made":   play("bid"); break;
+            case "bid_passed": play("pass"); break;
+            case "card_played": playCardSound(ev, g, hasTrickWon); break;
+        }
+    }
+
+    // A hand finished. On a played hand the result screen appears only after the
+    // last trick's review, so defer; a dealer-no-marriage hand has no trick to
+    // review, so play it now.
+    if (events.some((e) => e.type === "hand_scored")) {
+        if (hasTrickWon) deferredSounds.push("hand-end");
+        else play("hand-end");
+    }
+
+    // Trump Attack just became available to this client (we hold all trump and
+    // no one else has any). The button only shows once the trick review clears,
+    // so defer the cue to match.
+    const becameAvailable = !oldView?.game?.canClaimRemaining && g.canClaimRemaining;
+    if (becameAvailable) deferredSounds.push("trump-attack");
+}
+
+// A card hit the table. If trump was NOT led and this card trumps in, play the
+// escalation cue (1st trump-in / 1st over-trump / 2nd over-trump); otherwise the
+// ordinary flip.
+function playCardSound(ev, g, hasTrickWon) {
+    const trump = g.bidding.trump;
+    // The trick this card belongs to: still in progress, or — if this card was
+    // the 4th — already moved to `completed` in the same broadcast.
+    const completed = g.tricks.completed;
+    const trick = hasTrickWon && completed.length
+        ? completed[completed.length - 1].cards
+        : g.tricks.currentTrick;
+
+    if (!trick || trick.length === 0) { play("card-flip"); return; }
+
+    const ledSuit = suitOf(trick[0].card);
+    if (trump && ledSuit !== trump && suitOf(ev.card) === trump) {
+        // Count trump played in this trick so far (this card is the latest), in
+        // play order → 1, 2, or 3.
+        const n = Math.min(trick.filter((p) => suitOf(p.card) === trump).length, 3);
+        play(`trump-${n}`);
+    } else {
+        play("card-flip");
+    }
+}
+
+function flushDeferredSounds() {
+    for (const name of deferredSounds) play(name);
+    deferredSounds = [];
 }
 
 // Drop a stale card selection if it's no longer our turn or no longer legal.
@@ -251,6 +323,7 @@ function handleAction(action, data) {
             break;
 
         case "select-card":
+            if (ui.selectedCard !== data.card) play("card-pick");   // selecting, not deselecting
             ui.selectedCard = ui.selectedCard === data.card ? null : data.card;
             break;
 
@@ -270,6 +343,7 @@ function handleAction(action, data) {
             clearInterval(reviewTimer);
             reviewTimer = null;
             ui.reviewTrick = null;
+            deferredSounds = [];
             view = null;
             ui.screen = "landing";
             ui.mode = "home";

@@ -356,3 +356,24 @@ h3 { font-size: 1rem; margin: 12px 0 6px; }
     background: var(--gold); color: #3a2c00; text-align: center;
     padding: 6px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
 }
+
+/* ----- Mute toggle (mounted on <body>, outside the #app render cycle) ----- */
+
+.mute-toggle {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    right: calc(env(safe-area-inset-right, 0px) + 8px);
+    z-index: 1000;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+    font-size: 1.1rem; line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.mute-toggle:hover { background: rgba(0, 0, 0, 0.5); }
+.mute-toggle:active { transform: scale(0.94); }
